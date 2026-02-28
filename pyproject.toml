@@ -1,0 +1,90 @@
+[build-system]
+requires = ["setuptools>=68.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "orbit"
+version = "0.1.0"
+description = "A robotics/ML debugging toolkit for logging, detecting, analyzing, and prescribing corrections for robot learning failures."
+readme = "README.md"
+license = {text = "Apache-2.0"}
+requires-python = ">=3.10"
+authors = [
+    {name = "Rahil Lasne"},
+]
+keywords = ["robotics", "machine-learning", "debugging", "lerobot", "failure-analysis"]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Science/Research",
+    "License :: OSI Approved :: Apache Software License",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Topic :: Scientific/Engineering :: Artificial Intelligence",
+]
+
+dependencies = [
+    "lerobot==0.4.2",
+    "torch>=2.0.0",
+    "transformers>=4.30.0",
+    "numpy>=1.24.0",
+    "pandas>=2.0.0",
+    "h5py>=3.8.0",
+    "filelock>=3.12.0",
+    "pydantic>=2.0.0",
+    "pydantic-settings>=2.0.0",
+    "faiss-cpu>=1.7.4",
+    "umap-learn>=0.5.3",
+    "streamlit>=1.28.0",
+    "plotly>=5.15.0",
+    "Pillow>=9.5.0",
+    "open-clip-torch>=2.20.0",
+    "sentencepiece>=0.1.99",
+    "pyyaml>=6.0",
+    "click>=8.1.0",
+    "tqdm>=4.65.0",
+    "hdbscan>=0.8.33",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=7.4.0",
+    "pytest-cov>=4.1.0",
+    "ruff>=0.1.0",
+    "mypy>=1.5.0",
+    "pre-commit>=3.4.0",
+]
+test = [
+    "pytest>=7.4.0",
+    "pytest-cov>=4.1.0",
+]
+
+[project.urls]
+Homepage = "https://github.com/Rahillasne/Orbit"
+Repository = "https://github.com/Rahillasne/Orbit"
+Issues = "https://github.com/Rahillasne/Orbit/issues"
+
+[project.scripts]
+orbit = "orbit.cli:cli"
+orbit-dashboard = "orbit.dashboard.app:main"
+orbit-detect = "orbit.detector.cli:main"
+
+[tool.setuptools.packages.find]
+where = ["."]
+
+[tool.ruff]
+target-version = "py310"
+line-length = 100
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "W", "UP"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-v --tb=short"
+
+[tool.mypy]
+python_version = "3.10"
+warn_return_any = true
+warn_unused_configs = true
+disallow_untyped_defs = false
