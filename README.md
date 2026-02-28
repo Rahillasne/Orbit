@@ -5,7 +5,7 @@ Deployment diagnostics for learned robot policies. Find why your robot fails, an
 ![Python 3.10+](https://img.shields.io/badge/python-3.10+-blue.svg)
 ![License: Apache 2.0](https://img.shields.io/badge/License-Apache_2.0-green.svg)
 ![Tests](https://img.shields.io/badge/tests-128_passed-brightgreen.svg)
-[![Demo](https://img.shields.io/badge/🤗-Try_Demo-yellow.svg)](https://huggingface.co/spaces/Rahillasne/orbit-demo)
+[![Demo](https://img.shields.io/badge/🤗-Try_Demo-yellow.svg)](https://huggingface.co/spaces/Drahils/orbit-demo)
 
 ![ORBIT Dashboard](docs/dashboard-overview.png)
 *ORBIT dashboard showing deployment failure clusters and data collection prescriptions*
@@ -27,7 +27,7 @@ python scripts/generate_synthetic_deployment.py --output-dir ./demo_data
 orbit dashboard --data-dir ./demo_data
 ```
 
-Or try the [live demo on HuggingFace Spaces](https://huggingface.co/spaces/Rahillasne/orbit-demo) — no install required.
+Or try the [live demo on HuggingFace Spaces](https://huggingface.co/spaces/Drahils/orbit-demo) — no install required.
 
 ## How It Works
 

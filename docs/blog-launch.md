@@ -33,7 +33,7 @@ ORBIT is pure Python, pip-installable, and runs on CPU. Detection runs at ~0.1ms
 
 ## Try It
 
-**Live demo**: [HuggingFace Spaces](https://huggingface.co/spaces/Rahillasne/orbit-demo) — no install, loads in seconds.
+**Live demo**: [HuggingFace Spaces](https://huggingface.co/spaces/Drahils/orbit-demo) — no install, loads in seconds.
 
 **Run locally**:
 ```bash
