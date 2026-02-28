@@ -1,107 +1,85 @@
-# Orbit
+# ORBIT — Open Robot Iteration Toolkit
 
-[![License](https://img.shields.io/badge/License-Apache_2.0-blue.svg)](https://opensource.org/licenses/Apache-2.0)
-[![Python 3.10+](https://img.shields.io/badge/python-3.10+-blue.svg)](https://www.python.org/downloads/)
-[![CI](https://github.com/Rahillasne/Orbit/actions/workflows/ci.yml/badge.svg)](https://github.com/Rahillasne/Orbit/actions/workflows/ci.yml)
+Deployment diagnostics for learned robot policies. Find why your robot fails, and what data to collect next.
 
-A robotics/ML debugging toolkit for logging robot learning episodes, detecting failures, analyzing failure modes with vision-language embeddings, and prescribing corrective actions.
+![Python 3.10+](https://img.shields.io/badge/python-3.10+-blue.svg)
+![License: Apache 2.0](https://img.shields.io/badge/License-Apache_2.0-green.svg)
+![Tests](https://img.shields.io/badge/tests-128_passed-brightgreen.svg)
+[![Demo](https://img.shields.io/badge/🤗-Try_Demo-yellow.svg)](https://huggingface.co/spaces/Rahillasne/orbit-demo)
 
-## Installation
+![ORBIT Dashboard](docs/dashboard-overview.png)
+*ORBIT dashboard showing deployment failure clusters and data collection prescriptions*
+
+## What It Does
+
+ORBIT watches your robot fail in deployment, diagnoses *why* by comparing deployment data against your training distribution, and prescribes exactly what demonstrations to collect next.
+
+- **Logs** every deployment episode (joints, images, actions, outcomes) to HDF5
+- **Detects** failures automatically (gripper drops, stalls, timeouts, out-of-bounds, reward)
+- **Analyzes** distribution gaps between training and deployment using vision embeddings (SigLIP)
+- **Prescribes** ranked, specific data collection tasks to close the gaps
+
+## Quick Start
 
 ```bash
-git clone https://github.com/Rahillasne/Orbit.git
-cd orbit
 pip install -e .
+python scripts/generate_synthetic_deployment.py --output-dir ./demo_data
+orbit dashboard --data-dir ./demo_data
 ```
 
-For development:
+Or try the [live demo on HuggingFace Spaces](https://huggingface.co/spaces/Rahillasne/orbit-demo) — no install required.
 
-```bash
-pip install -e ".[dev]"
+## How It Works
+
+```
+Deploy Robot → ORBIT Logger → Failure Detector → Embedding Analyzer → Prescriber
+     ↓              ↓              ↓                   ↓                ↓
+  Episodes      Recorded       Failures          Distribution      "Collect 15 demos
+                 data          flagged            gap found          in dim lighting"
 ```
 
-## Quickstart
+## API Example
 
 ```python
-import numpy as np
-from PIL import Image
-
 from orbit.logger.episode_logger import EpisodeLogger
 from orbit.logger.schemas import LoggerConfig, Outcome
 
-# 1. Log episodes
-config = LoggerConfig(
-    storage_dir="./my_data",
-    task_name="pick_and_place",
-    robot_dof=6,
-)
+config = LoggerConfig(storage_dir="./my_data", task_name="pick_and_place", robot_dof=6)
 
 with EpisodeLogger(config) as logger:
     logger.start_episode()
     for step in range(50):
-        joint_pos = (np.random.randn(6) * 0.1).tolist()
-        action = (np.random.randn(6) * 0.01).tolist()
-        gripper = float(np.clip(np.random.random(), 0, 1))
-        image = Image.fromarray(np.random.randint(0, 255, (64, 64, 3), dtype=np.uint8))
         logger.log_frame(
-            joint_positions=joint_pos,
-            gripper_state=gripper,
-            action=action,
-            reward=0.1,
-            images={"front": image},
+            joint_positions=joint_pos, gripper_state=gripper,
+            action=action, reward=reward, images={"front": image},
         )
     episode = logger.end_episode(outcome=Outcome.SUCCESS)
-
-# 2. Detect failures
-from orbit.detector.heuristic import DetectorPipeline
-
-pipeline = DetectorPipeline()  # includes all 5 detectors by default
-result = pipeline.run(episode)
-print(f"Failure: {result.is_failure}, Detections: {len(result.detections)}")
-
-# 3. Generate prescriptions
-from orbit.prescriber import Prescriber
-
-prescriber = Prescriber()
-report = prescriber.prescribe(detection_results=[result.to_legacy_result()])
-for p in report.prescriptions:
-    print(f"[{p.priority}] {p.title}: {p.description}")
 ```
 
-> See [examples/quickstart.py](examples/quickstart.py) for the full working example.
+## Built for LeRobot
 
-## Modules
+ORBIT is designed as a companion to HuggingFace's [LeRobot](https://github.com/huggingface/lerobot) framework. It reads LeRobot dataset formats, plugs into LeRobot policy inference loops, and exports prescriptions as LeRobot-compatible data collection tasks.
 
-| Module | Description |
-|--------|-------------|
-| `orbit.logger` | Episode logging with HDF5/Parquet storage backends |
-| `orbit.detector` | Heuristic-based failure detection (reward thresholds, action variance, consecutive failures) |
-| `orbit.analyzer` | Embedding gap analysis using OpenCLIP, FAISS, and UMAP |
-| `orbit.prescriber` | Corrective prescription generation from failure patterns |
-| `orbit.vlm` | Vision-language model failure description via CLIP zero-shot classification |
-| `orbit.dashboard` | Streamlit + Plotly interactive dashboard for episode visualization |
+## Installation
 
-## Dashboard
-
-![Session Overview](docs/dashboard-overview.png)
-
-![Prescriptions](docs/dashboard-prescriptions.png)
-
-Launch the interactive dashboard:
+Full install with all dependencies:
 
 ```bash
-orbit-dashboard
+pip install -e .
 ```
 
-## Contributing
+Lightweight install (no torch/transformers, for dashboard-only use):
 
-1. Fork the repository
-2. Create a feature branch (`git checkout -b feature/my-feature`)
-3. Install dev dependencies (`pip install -e ".[dev]"`)
-4. Run tests (`pytest tests/`)
-5. Run linting (`ruff check orbit/ tests/`)
-6. Submit a pull request
+```bash
+pip install -e ".[light]"
+```
+
+> **Note:** Requires Python 3.10 or 3.11. The `lerobot` dependency does not yet support Python 3.12.
+
+## Project Status
+
+ORBIT is in early development (v1.0). The core pipeline works end-to-end on manipulation tasks with camera input. Contributions welcome — see [CONTRIBUTING.md](CONTRIBUTING.md).
 
 ## License
 
-This project is licensed under the Apache License 2.0 - see the [LICENSE](LICENSE) file for details.
+Apache 2.0 — see [LICENSE](LICENSE) for details.

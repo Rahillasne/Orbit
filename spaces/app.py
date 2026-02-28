@@ -69,8 +69,8 @@ def _ensure_episodes():
 
 
 def render_sidebar() -> None:
-    st.sidebar.title("Orbit Dashboard")
-    st.sidebar.caption("Robot Learning Failure Debugger")
+    st.sidebar.title("🛰️ ORBIT")
+    st.sidebar.caption("Deployment Diagnostics for Robot Policies")
     st.sidebar.divider()
 
     data_dir = st.sidebar.text_input("Data directory", value=_get_data_dir())
@@ -90,6 +90,10 @@ def render_sidebar() -> None:
         st.cache_data.clear()
         st.rerun()
 
+    st.sidebar.divider()
+    st.sidebar.markdown("[GitHub](https://github.com/Rahillasne/Orbit)")
+    st.sidebar.markdown("Made by Rahil Lasne")
+
 
 # ---------------------------------------------------------------------------
 # PAGE 1: Session Overview
@@ -98,6 +102,11 @@ def render_sidebar() -> None:
 
 def page_session_overview() -> None:
     st.header("Session Overview")
+
+    st.info(
+        "This demo uses synthetic deployment data (20 episodes, 60% success rate). "
+        "In real use, you'd point ORBIT at your own deployment logs."
+    )
 
     ep_dicts = _ensure_episodes()
     if not ep_dicts:
@@ -250,6 +259,11 @@ def page_failure_analysis() -> None:
 def page_prescriptions() -> None:
     st.header("Prescriptions")
 
+    st.info(
+        "These prescriptions are generated automatically from the distribution gap analysis. "
+        "Each task targets a specific failure cluster."
+    )
+
     ep_dicts = _ensure_episodes()
     if not ep_dicts:
         st.info("Select a session from the sidebar.")
@@ -371,7 +385,7 @@ def page_settings() -> None:
 
 
 def _run_app() -> None:
-    st.set_page_config(page_title="Orbit Dashboard", layout="wide", initial_sidebar_state="expanded")
+    st.set_page_config(page_title="ORBIT Demo", page_icon="🛰️", layout="wide", initial_sidebar_state="expanded")
     render_sidebar()
     pages = [
         st.Page(page_session_overview, title="Session Overview"),

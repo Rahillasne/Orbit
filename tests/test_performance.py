@@ -138,8 +138,8 @@ def bench_dashboard_start():
          "--server.port", "8503", "--server.headless", "true",
          "--", "--data-dir", "/tmp/orbit-test-data"],
         stdout=subprocess.PIPE, stderr=subprocess.PIPE,
-        cwd="/Users/rahillasne/Desktop/Orbit",
-        env={**os.environ, "PYTHONPATH": "/Users/rahillasne/Desktop/Orbit"},
+        cwd=str(Path(__file__).resolve().parent.parent),
+        env={**os.environ, "PYTHONPATH": str(Path(__file__).resolve().parent.parent)},
     )
 
     # Poll until it responds

@@ -25,6 +25,7 @@ env/
 htmlcov/
 .coverage
 .mypy_cache/
+.ruff_cache/
 
 # Data artifacts
 *.hdf5
@@ -45,6 +46,9 @@ my_data_test*/
 
 # Environment
 .env
+
+# Lock files
+*.h5.lock
 
 # Runtime cache
 .orbit_cache/

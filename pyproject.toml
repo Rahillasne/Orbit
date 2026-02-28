@@ -3,18 +3,19 @@ requires = ["setuptools>=68.0", "wheel"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "orbit"
-version = "0.1.0"
-description = "A robotics/ML debugging toolkit for logging, detecting, analyzing, and prescribing corrections for robot learning failures."
+name = "orbit-robotics"
+version = "1.0.0"
+description = "Deployment diagnostics for learned robot policies"
 readme = "README.md"
 license = {text = "Apache-2.0"}
-requires-python = ">=3.10"
+requires-python = ">=3.10,<3.12"
 authors = [
     {name = "Rahil Lasne"},
 ]
-keywords = ["robotics", "machine-learning", "debugging", "lerobot", "failure-analysis"]
+keywords = ["robotics", "deployment", "diagnostics", "lerobot",
+            "imitation-learning", "VLA"]
 classifiers = [
-    "Development Status :: 3 - Alpha",
+    "Development Status :: 4 - Beta",
     "Intended Audience :: Science/Research",
     "License :: OSI Approved :: Apache Software License",
     "Programming Language :: Python :: 3",
@@ -47,6 +48,21 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
+light = [
+    "streamlit>=1.28.0",
+    "plotly>=5.15.0",
+    "pandas>=2.0.0",
+    "h5py>=3.8.0",
+    "numpy>=1.24.0",
+    "pydantic>=2.0.0",
+    "pydantic-settings>=2.0.0",
+    "filelock>=3.12.0",
+    "Pillow>=9.5.0",
+    "pyyaml>=6.0",
+    "click>=8.1.0",
+    "tqdm>=4.65.0",
+]
+vlm = ["openai>=1.0"]
 dev = [
     "pytest>=7.4.0",
     "pytest-cov>=4.1.0",
@@ -61,6 +77,7 @@ test = [
 
 [project.urls]
 Homepage = "https://github.com/Rahillasne/Orbit"
+Documentation = "https://github.com/Rahillasne/Orbit#readme"
 Repository = "https://github.com/Rahillasne/Orbit"
 Issues = "https://github.com/Rahillasne/Orbit/issues"
 

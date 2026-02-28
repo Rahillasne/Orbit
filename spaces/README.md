@@ -1,6 +1,6 @@
 ---
-title: ORBIT Dashboard Demo
-emoji: "\U0001F916"
+title: ORBIT Demo
+emoji: 🛰️
 colorFrom: blue
 colorTo: purple
 sdk: streamlit
@@ -8,18 +8,13 @@ sdk_version: "1.41.0"
 app_file: app.py
 pinned: false
 license: apache-2.0
-short_description: Robot learning failure analysis dashboard
+short_description: Deployment diagnostics for robot policies
 ---
 
-# ORBIT Dashboard Demo
+# ORBIT — Open Robot Iteration Toolkit
 
-Interactive dashboard for analyzing robot learning deployment failures.
-This demo uses synthetic deployment data (20 episodes: 12 success, 5 lighting failures, 3 position failures).
+Interactive demo of ORBIT's deployment diagnostics for robot policies.
 
-**Features:**
-- Session Overview with success rate metrics and episode timeline
-- Failure Analysis with heuristic detection (stall, gripper drop, reward, timeout, bounds)
-- Prescriptions with priority-ranked corrective recommendations
-- Export to JSON, CSV, or Markdown
+**[GitHub](https://github.com/Rahillasne/Orbit)** | **[Blog Post](https://github.com/Rahillasne/Orbit/blob/main/docs/blog-launch.md)**
 
-[Full repository on GitHub](https://github.com/Rahillasne/Orbit)
+This Space runs on pre-generated synthetic data. To use ORBIT with your own robot deployments, install from GitHub.

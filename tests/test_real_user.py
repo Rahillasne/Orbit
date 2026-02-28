@@ -21,6 +21,7 @@ import subprocess
 import sys
 import time
 import urllib.request
+from pathlib import Path
 
 # ---------------------------------------------------------------------------
 # Configuration
@@ -31,7 +32,7 @@ BASE_URL = f"http://localhost:{PORT}"
 HEALTH_URL = f"{BASE_URL}/_stcore/health"
 MAIN_URL = f"{BASE_URL}/"
 STARTUP_TIMEOUT = 30  # seconds
-PROJECT_DIR = "/Users/rahillasne/Desktop/Orbit"
+PROJECT_DIR = str(Path(__file__).resolve().parent.parent)
 DATA_DIR = "/tmp/orbit-test-data"
 
 ERROR_INDICATORS = [
