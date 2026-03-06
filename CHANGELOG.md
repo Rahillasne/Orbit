@@ -4,12 +4,20 @@
 
 Dataset Profiler release.
 
+### New Features
+- **Profile module**: `DatasetProfiler`, `CapabilityScorer`, `CoverageAnalyzer`, `QualityEstimator`, `ProfileReporter`
 - **Dashboard**: New "Dataset Profiler" page with coverage map, capability scoring, quality histogram, prescriptions, and dataset comparison mode
 - **CLI**: `orbit profile` command for profiling datasets from local directories or HuggingFace Hub
 - **CLI**: `orbit profile-compare` command for side-by-side dataset comparison
-- **Profile module**: `DatasetProfiler`, `CapabilityScorer`, `CoverageAnalyzer`, `QualityEstimator`, `ProfileReporter`
 - Dataset loading from LeRobot format and HDF5 directories
-- Synthetic benchmark generation for testing
+- Synthetic benchmark generation and validation suite
+
+### Bug Fixes
+- Fix `transformers` v5 compatibility: handle `BaseModelOutputWithPooling` from `get_image_features()` / `get_text_features()`
+- Fix macOS segfault caused by OpenMP threading conflict between FAISS/torch and HDBSCAN/UMAP
+
+### Tests
+- 202 tests passing (up from 128 in v1.0)
 
 ## v1.0.0 (2026-02-28)
 
