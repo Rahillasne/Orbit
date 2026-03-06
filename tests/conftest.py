@@ -19,7 +19,6 @@ from orbit.logger.schemas import (
     StepRecord,
 )
 
-
 # ---------------------------------------------------------------------------
 # Directory fixtures
 # ---------------------------------------------------------------------------
@@ -113,11 +112,7 @@ def sample_step():
         action=[0.01, -0.02, 0.03, -0.01, 0.0, 0.0],
         reward=0.1,
         done=False,
-        images={
-            "front": Image.fromarray(
-                np.random.randint(0, 255, (64, 64, 3), dtype=np.uint8)
-            )
-        },
+        images={"front": Image.fromarray(np.random.randint(0, 255, (64, 64, 3), dtype=np.uint8))},
     )
 
 
@@ -133,9 +128,7 @@ def _make_episode(episode_id, n_steps, reward_fn, action_fn, success, task="test
             reward=reward_fn(i),
             done=(i == n_steps - 1),
             images={
-                "front": Image.fromarray(
-                    np.random.randint(0, 255, (64, 64, 3), dtype=np.uint8)
-                )
+                "front": Image.fromarray(np.random.randint(0, 255, (64, 64, 3), dtype=np.uint8))
             },
         )
         steps.append(step)
@@ -186,9 +179,7 @@ def deployment_episodes_with_images(tmp_path):
     for outcome, prefix in [(Outcome.SUCCESS, "suc"), (Outcome.FAILURE, "fail")]:
         frames = []
         for i in range(10):
-            img = Image.fromarray(
-                np.random.randint(0, 255, (64, 64, 3), dtype=np.uint8)
-            )
+            img = Image.fromarray(np.random.randint(0, 255, (64, 64, 3), dtype=np.uint8))
             img_path = tmp_path / "images" / f"{prefix}_{i:04d}.png"
             img_path.parent.mkdir(parents=True, exist_ok=True)
             img.save(img_path)
@@ -202,7 +193,5 @@ def deployment_episodes_with_images(tmp_path):
                     reward=0.1,
                 )
             )
-        episodes.append(
-            Episode(task_name="test", frames=frames, outcome=outcome)
-        )
+        episodes.append(Episode(task_name="test", frames=frames, outcome=outcome))
     return episodes

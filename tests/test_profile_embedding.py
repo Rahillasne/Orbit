@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-from pathlib import Path
 from unittest.mock import MagicMock, patch
 
 import numpy as np
@@ -12,7 +11,6 @@ from PIL import Image
 from orbit.profile.embedding import EmbeddingExtractor
 from orbit.profile.types import EmbeddingIndex
 
-
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
@@ -20,15 +18,10 @@ from orbit.profile.types import EmbeddingIndex
 
 def _make_test_images(n: int, seed: int = 42) -> list[Image.Image]:
     rng = np.random.default_rng(seed)
-    return [
-        Image.fromarray(rng.integers(0, 255, (224, 224, 3), dtype=np.uint8))
-        for _ in range(n)
-    ]
+    return [Image.fromarray(rng.integers(0, 255, (224, 224, 3), dtype=np.uint8)) for _ in range(n)]
 
 
-def _make_synthetic_embeddings(
-    n: int, dim: int = 768, seed: int = 42
-) -> np.ndarray:
+def _make_synthetic_embeddings(n: int, dim: int = 768, seed: int = 42) -> np.ndarray:
     rng = np.random.default_rng(seed)
     embs = rng.standard_normal((n, dim)).astype(np.float32)
     norms = np.linalg.norm(embs, axis=1, keepdims=True)

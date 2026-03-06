@@ -76,12 +76,18 @@ def start_streamlit() -> subprocess.Popen:
     env = {**os.environ, "PYTHONPATH": PROJECT_DIR}
     proc = subprocess.Popen(
         [
-            sys.executable, "-m", "streamlit", "run",
+            sys.executable,
+            "-m",
+            "streamlit",
+            "run",
             "orbit/dashboard/app.py",
-            "--server.port", str(PORT),
-            "--server.headless", "true",
+            "--server.port",
+            str(PORT),
+            "--server.headless",
+            "true",
             "--",
-            "--data-dir", DATA_DIR,
+            "--data-dir",
+            DATA_DIR,
         ],
         stdout=subprocess.PIPE,
         stderr=subprocess.PIPE,
@@ -136,11 +142,13 @@ def main() -> int:
 
         # --- Check: health endpoint ---
         health_ok = healthy and health_body.lower() == "ok"
-        results.append((
-            health_ok,
-            "Streamlit health endpoint (/_stcore/health)",
-            f"body={health_body!r}" if healthy else f"timeout: {health_body}",
-        ))
+        results.append(
+            (
+                health_ok,
+                "Streamlit health endpoint (/_stcore/health)",
+                f"body={health_body!r}" if healthy else f"timeout: {health_body}",
+            )
+        )
 
         if not healthy:
             # Can't continue if the server never came up
@@ -179,8 +187,10 @@ def main() -> int:
             # Parse the HTML for the <script> src pointing to the JS bundle
             # Streamlit uses relative paths like "./static/js/main.HASH.js"
             import re
+
             script_match = re.search(
-                r'src="\.?(/static/js/[^"]+)"', body_text,
+                r'src="\.?(/static/js/[^"]+)"',
+                body_text,
             )
             if script_match:
                 asset_url = f"{BASE_URL}{script_match.group(1)}"
@@ -191,11 +201,13 @@ def main() -> int:
 
         total_size = page_size + asset_size
         size_ok = total_size > 1000
-        results.append((
-            size_ok,
-            "Page size > 1000 bytes",
-            f"html={page_size} + js_asset={asset_size} = {total_size} bytes total",
-        ))
+        results.append(
+            (
+                size_ok,
+                "Page size > 1000 bytes",
+                f"html={page_size} + js_asset={asset_size} = {total_size} bytes total",
+            )
+        )
 
         # --- Check: no error indicators ---
         found_errors: list[str] = []
@@ -214,6 +226,7 @@ def main() -> int:
             proc.stderr.flush()  # type: ignore[union-attr]
             # Read whatever is available without blocking
             import select
+
             if select.select([proc.stderr], [], [], 0.5)[0]:
                 stderr_chunk = proc.stderr.read1(65536)  # type: ignore[union-attr]
                 stderr_text = stderr_chunk.decode("utf-8", errors="replace")
@@ -223,12 +236,18 @@ def main() -> int:
         stderr_errors: list[str] = []
         # Only flag real Python errors, not warnings
         for line in stderr_text.splitlines():
-            low = line.lower()
-            if any(kw in line for kw in [
-                "Traceback", "Error", "Exception",
-                "ModuleNotFoundError", "ImportError",
-                "SyntaxError", "NameError",
-            ]):
+            if any(
+                kw in line
+                for kw in [
+                    "Traceback",
+                    "Error",
+                    "Exception",
+                    "ModuleNotFoundError",
+                    "ImportError",
+                    "SyntaxError",
+                    "NameError",
+                ]
+            ):
                 # Ignore common benign messages
                 if "WARNING" in line or "UserWarning" in line:
                     continue

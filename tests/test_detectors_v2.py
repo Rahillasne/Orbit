@@ -8,14 +8,11 @@ import numpy as np
 import pytest
 
 from orbit.detector.heuristic import (
-    BaseDetector,
     DetectorPipeline,
-    FailureDetection,
     GripperDropConfig,
     GripperDropDetector,
     OutOfBoundsConfig,
     OutOfBoundsDetector,
-    PipelineResult,
     RewardThresholdConfig,
     RewardThresholdDetector,
     StallConfig,
@@ -25,7 +22,6 @@ from orbit.detector.heuristic import (
     load_pipeline_from_yaml,
 )
 from orbit.logger.schemas import Episode, EpisodeFrame, LoggerConfig, Outcome
-
 
 # ── Helpers ────────────────────────────────────────────────────────
 
@@ -321,9 +317,7 @@ class TestRewardThresholdDetector:
     def test_low_total_reward(self):
         frames = _make_frames(10, reward_fn=lambda _: -1.0)
         episode = _make_episode(frames)
-        detector = RewardThresholdDetector(
-            RewardThresholdConfig(min_total_reward=0.0)
-        )
+        detector = RewardThresholdDetector(RewardThresholdConfig(min_total_reward=0.0))
         detections = detector.detect(episode)
         assert len(detections) >= 1
         assert detections[0].detector_name == "RewardThresholdDetector"
@@ -331,9 +325,7 @@ class TestRewardThresholdDetector:
     def test_adequate_reward_no_detection(self):
         frames = _make_frames(10, reward_fn=lambda _: 1.0)
         episode = _make_episode(frames)
-        detector = RewardThresholdDetector(
-            RewardThresholdConfig(min_total_reward=0.0)
-        )
+        detector = RewardThresholdDetector(RewardThresholdConfig(min_total_reward=0.0))
         assert detector.detect(episode) == []
 
     def test_avg_reward_check(self):
@@ -353,9 +345,7 @@ class TestRewardThresholdDetector:
         """Frames with reward=None are excluded from total."""
         frames = _make_frames(10, reward_fn=lambda _: None)
         episode = _make_episode(frames)
-        detector = RewardThresholdDetector(
-            RewardThresholdConfig(min_total_reward=-1.0)
-        )
+        detector = RewardThresholdDetector(RewardThresholdConfig(min_total_reward=-1.0))
         # total_reward is 0.0 (None excluded), which is >= -1.0
         assert detector.detect(episode) == []
 
@@ -494,9 +484,7 @@ class TestBaseDetector:
     def test_explain_with_detections(self):
         frames = _make_frames(10, reward_fn=lambda _: -1.0)
         episode = _make_episode(frames)
-        detector = RewardThresholdDetector(
-            RewardThresholdConfig(min_total_reward=0.0)
-        )
+        detector = RewardThresholdDetector(RewardThresholdConfig(min_total_reward=0.0))
         detections = detector.detect(episode)
         explanation = detector.explain(detections)
         assert "RewardThresholdDetector" in explanation
@@ -549,10 +537,7 @@ class TestYAMLConfig:
 
     def test_unknown_detector_raises(self, tmp_path):
         config_yaml = tmp_path / "bad.yaml"
-        config_yaml.write_text(
-            "detectors:\n"
-            "  - name: nonexistent\n"
-        )
+        config_yaml.write_text("detectors:\n  - name: nonexistent\n")
         with pytest.raises(ValueError, match="Unknown detector"):
             load_pipeline_from_yaml(config_yaml)
 

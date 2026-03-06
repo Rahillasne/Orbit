@@ -3,9 +3,10 @@
 Test 3: Data Integrity — Traces data through the entire ORBIT pipeline.
 Logger → Detector → Analyzer → Prescriber → Export
 """
-import json
+
 import csv
 import io
+import json
 import sys
 import time
 from collections import Counter
@@ -70,7 +71,7 @@ def test_load():
         print(f"  ❌ Expected 8 failures, got {outcomes.get('failure', 0)}")
         SCORECARD["Data Loading"] = "❌"
     else:
-        print(f"  ✅ Correct: 12 success, 8 failure")
+        print("  ✅ Correct: 12 success, 8 failure")
         SCORECARD["Data Loading"] = "✅"
 
     failure_types = Counter()
@@ -92,10 +93,10 @@ def test_detect(episodes):
     from orbit.detector.heuristic import (
         DetectorPipeline,
         GripperDropDetector,
-        StallDetector,
         OutOfBoundsDetector,
-        TimeoutDetector,
         RewardThresholdDetector,
+        StallDetector,
+        TimeoutDetector,
     )
 
     pipeline = DetectorPipeline(
@@ -160,7 +161,9 @@ def test_detect(episodes):
     if recall_ok and fp_ok:
         SCORECARD["Detection"] = f"✅ (precision: {precision:.0%}, recall: {recall:.0%})"
     else:
-        SCORECARD["Detection"] = f"❌ (precision: {precision:.0%}, recall: {recall:.0%}, FP: {false_pos})"
+        SCORECARD["Detection"] = (
+            f"❌ (precision: {precision:.0%}, recall: {recall:.0%}, FP: {false_pos})"
+        )
 
     return results_list
 
@@ -172,9 +175,9 @@ def test_analyze(episodes):
     print("=" * 60)
 
     try:
-        from orbit.analyzer.embedding_analyzer import EmbeddingAnalyzer
-
         from PIL import Image
+
+        from orbit.analyzer.embedding_analyzer import EmbeddingAnalyzer
 
         analyzer = EmbeddingAnalyzer()
 
@@ -212,7 +215,7 @@ def test_analyze(episodes):
         if success_gaps and failure_gaps:
             mean_s = sum(success_gaps) / len(success_gaps)
             mean_f = sum(failure_gaps) / len(failure_gaps)
-            ratio = mean_f / mean_s if mean_s > 0 else float('inf')
+            ratio = mean_f / mean_s if mean_s > 0 else float("inf")
             print(f"  Mean gap score (success): {mean_s:.4f}")
             print(f"  Mean gap score (failure): {mean_f:.4f}")
             print(f"  Gap ratio (failure/success): {ratio:.2f}x")
@@ -231,9 +234,10 @@ def test_analyze(episodes):
         print("\n  Running clustering...")
         try:
             cluster_report = analyzer.cluster_failures(episodes, frame_results)
-            n_clusters = getattr(cluster_report, 'n_clusters', None)
+            n_clusters = getattr(cluster_report, "n_clusters", None)
             if n_clusters is None:
-                n_clusters = len(set(getattr(cluster_report, 'labels', []))) - (1 if -1 in getattr(cluster_report, 'labels', []) else 0)
+                labels = getattr(cluster_report, "labels", [])
+                n_clusters = len(set(labels)) - (1 if -1 in labels else 0)
             print(f"  Number of clusters found: {n_clusters}")
 
             if n_clusters >= 2:
@@ -245,6 +249,7 @@ def test_analyze(episodes):
         except Exception as e:
             print(f"  ⚠️ Clustering failed: {e}")
             import traceback
+
             traceback.print_exc()
             SCORECARD["Clustering"] = f"❌ ({e})"
 
@@ -255,6 +260,7 @@ def test_analyze(episodes):
     except Exception as e:
         print(f"  ❌ Analysis failed: {e}")
         import traceback
+
         traceback.print_exc()
         SCORECARD["Gap Analysis"] = f"❌ ({e})"
         SCORECARD["Clustering"] = f"❌ ({e})"
@@ -295,9 +301,12 @@ def test_prescribe(episodes, pipeline_results):
         print(f"  Summary: {report.summary}")
 
         if prescriptions:
-            print(f"\n  Top 3 prescriptions:")
+            print("\n  Top 3 prescriptions:")
             for i, rx in enumerate(prescriptions[:3]):
-                print(f"    {i+1}. [priority={rx.priority}, conf={rx.confidence:.2f}] {rx.prescription_type.value}")
+                print(
+                    f"    {i + 1}. [priority={rx.priority},"
+                    f" conf={rx.confidence:.2f}] {rx.prescription_type.value}"
+                )
                 print(f"       {rx.title}")
                 print(f"       {rx.description[:100]}...")
 
@@ -308,7 +317,7 @@ def test_prescribe(episodes, pipeline_results):
                 print("  ✅ All prescriptions have non-zero priorities and descriptions")
                 SCORECARD["Prescriptions"] = f"✅ ({len(prescriptions)} tasks)"
             else:
-                SCORECARD["Prescriptions"] = f"❌ (missing priorities or descriptions)"
+                SCORECARD["Prescriptions"] = "❌ (missing priorities or descriptions)"
         else:
             print("  ⚠️ No prescriptions generated")
             SCORECARD["Prescriptions"] = "⚠️ (0 tasks)"
@@ -318,6 +327,7 @@ def test_prescribe(episodes, pipeline_results):
     except Exception as e:
         print(f"  ❌ Prescriber failed: {e}")
         import traceback
+
         traceback.print_exc()
         SCORECARD["Prescriptions"] = f"❌ ({e})"
         return None
@@ -366,7 +376,15 @@ def test_export(report):
         writer = csv.writer(output)
         writer.writerow(["type", "title", "priority", "confidence", "description"])
         for rx in report.prescriptions:
-            writer.writerow([rx.prescription_type.value, rx.title, rx.priority, rx.confidence, rx.description])
+            writer.writerow(
+                [
+                    rx.prescription_type.value,
+                    rx.title,
+                    rx.priority,
+                    rx.confidence,
+                    rx.description,
+                ]
+            )
         csv_str = output.getvalue()
         rows = list(csv.reader(io.StringIO(csv_str)))
         expected = len(report.prescriptions) + 1
@@ -384,7 +402,10 @@ def test_export(report):
         lines.append("| # | Type | Title | Priority | Confidence |")
         lines.append("|---|------|-------|----------|------------|")
         for i, rx in enumerate(report.prescriptions):
-            lines.append(f"| {i+1} | {rx.prescription_type.value} | {rx.title} | {rx.priority} | {rx.confidence:.2f} |")
+            lines.append(
+                f"| {i + 1} | {rx.prescription_type.value} | {rx.title}"
+                f" | {rx.priority} | {rx.confidence:.2f} |"
+            )
         md_str = "\n".join(lines)
         print(f"  ✅ Markdown export valid ({len(md_str)} bytes, has table: {'|' in md_str})")
     except Exception as e:

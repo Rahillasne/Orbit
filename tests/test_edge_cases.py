@@ -17,24 +17,11 @@ Edge cases covered
 from __future__ import annotations
 
 import datetime
-import os
-import shutil
-import tempfile
-from pathlib import Path
-from uuid import UUID, uuid4
+from uuid import uuid4
 
 import numpy as np
 import pytest
 
-from orbit.logger.schemas import (
-    DeploymentSession,
-    Episode,
-    EpisodeFrame,
-    LoggerConfig,
-    Outcome,
-)
-from orbit.logger.storage import HDF5Storage
-from orbit.logger.episode_logger import EpisodeLogger
 from orbit.detector.heuristic import (
     DetectorPipeline,
     GripperDropDetector,
@@ -43,6 +30,15 @@ from orbit.detector.heuristic import (
     StallDetector,
     TimeoutDetector,
 )
+from orbit.logger.episode_logger import EpisodeLogger
+from orbit.logger.schemas import (
+    DeploymentSession,
+    Episode,
+    EpisodeFrame,
+    LoggerConfig,
+    Outcome,
+)
+from orbit.logger.storage import HDF5Storage
 
 # NOTE: Prescriber and DetectionResult are imported lazily inside helper
 # functions because Prescriber transitively imports open_clip / faiss / torch
@@ -95,10 +91,7 @@ def _make_episode(
 ) -> Episode:
     """Build a complete Episode with *n_frames* frames."""
     now = datetime.datetime.now()
-    frames = [
-        _make_frame(i, reward=reward, image_path=image_path)
-        for i in range(n_frames)
-    ]
+    frames = [_make_frame(i, reward=reward, image_path=image_path) for i in range(n_frames)]
     return Episode(
         task_name=task_name,
         robot_id="test_robot",
@@ -144,8 +137,8 @@ def _run_prescriber_on(detection_dicts: list[dict]) -> dict:
     heavy ML dependencies (open_clip, faiss, torch) are unavailable.
     """
     try:
-        from orbit.prescriber.prescriber import Prescriber
         from orbit.detector.legacy import DetectionResult
+        from orbit.prescriber.prescriber import Prescriber
     except ImportError:
         return {
             "prescriptions": [],
@@ -360,7 +353,7 @@ class TestSingleEpisode:
             robot_dof=6,
         )
         with EpisodeLogger(config) as logger:
-            eid = logger.start_episode()
+            logger.start_episode()
             for i in range(10):
                 logger.log_frame(
                     joint_positions=[0.1 * i, 0.2, 0.3, 0.4, 0.5, 0.6],
@@ -430,8 +423,7 @@ class TestAllSuccesses:
     def test_all_success_detector_pipeline(self):
         """Pipeline on all-success episodes should produce zero failures."""
         episodes = [
-            _make_episode(n_frames=20, outcome=Outcome.SUCCESS, reward=1.0)
-            for _ in range(10)
+            _make_episode(n_frames=20, outcome=Outcome.SUCCESS, reward=1.0) for _ in range(10)
         ]
         pipeline = _make_pipeline()
         results = pipeline.run_batch(episodes)
@@ -447,8 +439,7 @@ class TestAllSuccesses:
     def test_all_success_prescriber_no_crash(self):
         """Prescriber with 0 detected failures still produces a report."""
         episodes = [
-            _make_episode(n_frames=20, outcome=Outcome.SUCCESS, reward=1.0)
-            for _ in range(10)
+            _make_episode(n_frames=20, outcome=Outcome.SUCCESS, reward=1.0) for _ in range(10)
         ]
         detection_dicts = _detection_results_from_pipeline(episodes)
         report = _run_prescriber_on(detection_dicts)
@@ -515,24 +506,20 @@ class TestAllFailures:
     def test_all_failure_detector_pipeline(self):
         """Pipeline on all-failure episodes should flag them all."""
         episodes = [
-            _make_episode(n_frames=20, outcome=Outcome.FAILURE, reward=-1.0)
-            for _ in range(10)
+            _make_episode(n_frames=20, outcome=Outcome.FAILURE, reward=-1.0) for _ in range(10)
         ]
         pipeline = _make_pipeline()
         results = pipeline.run_batch(episodes)
         assert len(results) == 10
         # All should be detected as failures (negative total reward)
         failure_count = sum(1 for r in results if r.is_failure)
-        assert failure_count == 10, (
-            f"Expected all 10 flagged as failures, got {failure_count}"
-        )
+        assert failure_count == 10, f"Expected all 10 flagged as failures, got {failure_count}"
 
     @requires_prescriber
     def test_all_failure_prescriber(self):
         """Prescriber produces actionable tasks from all-failure input."""
         episodes = [
-            _make_episode(n_frames=20, outcome=Outcome.FAILURE, reward=-1.0)
-            for _ in range(10)
+            _make_episode(n_frames=20, outcome=Outcome.FAILURE, reward=-1.0) for _ in range(10)
         ]
         detection_dicts = _detection_results_from_pipeline(episodes)
         report = _run_prescriber_on(detection_dicts)
@@ -544,8 +531,7 @@ class TestAllFailures:
     def test_all_failure_extreme_negative_reward(self):
         """Very large negative rewards should not cause overflow or crash."""
         episodes = [
-            _make_episode(n_frames=50, outcome=Outcome.FAILURE, reward=-999.99)
-            for _ in range(5)
+            _make_episode(n_frames=50, outcome=Outcome.FAILURE, reward=-999.99) for _ in range(5)
         ]
         pipeline = _make_pipeline()
         results = pipeline.run_batch(episodes)
@@ -585,8 +571,7 @@ class TestAllFailures:
         from orbit.dashboard.data_loader import episodes_to_summary_df
 
         episodes = [
-            _make_episode(n_frames=10, outcome=Outcome.FAILURE, reward=-1.0)
-            for _ in range(5)
+            _make_episode(n_frames=10, outcome=Outcome.FAILURE, reward=-1.0) for _ in range(5)
         ]
         df = episodes_to_summary_df(episodes)
         assert len(df) == 5
@@ -674,9 +659,7 @@ class TestMissingImages:
         real_img_path = tmp_path / "real_image.png"
         from PIL import Image
 
-        Image.fromarray(
-            np.random.randint(0, 255, (32, 32, 3), dtype=np.uint8)
-        ).save(real_img_path)
+        Image.fromarray(np.random.randint(0, 255, (32, 32, 3), dtype=np.uint8)).save(real_img_path)
 
         frames = []
         for i in range(10):
@@ -684,7 +667,7 @@ class TestMissingImages:
             if i % 2 == 0:
                 path = str(real_img_path)
             else:
-                path = "/tmp/nonexistent/frame_{:06d}.png".format(i)
+                path = f"/tmp/nonexistent/frame_{i:06d}.png"
             frames.append(_make_frame(i, reward=0.1, image_path=path))
 
         episode = Episode(
@@ -760,13 +743,9 @@ class TestAdditionalEdgeCases:
         pipeline = _make_pipeline()
         result = pipeline.run(episode)
         # TimeoutDetector should not flag a 0-second episode
-        timeout_dets = [
-            d for d in result.detections if d.detector_name == "TimeoutDetector"
-        ]
+        timeout_dets = [d for d in result.detections if d.detector_name == "TimeoutDetector"]
         # duration=0 < 60s default, so no timeout detection
-        assert not any(
-            "duration" in d.description.lower() for d in timeout_dets
-        )
+        assert not any("duration" in d.description.lower() for d in timeout_dets)
 
     def test_very_large_episode(self):
         """Episode with 2000 frames should not cause memory/performance issues."""
@@ -775,11 +754,7 @@ class TestAdditionalEdgeCases:
         results = pipeline.run_batch([episode])
         assert len(results) == 1
         # TimeoutDetector should flag > 1000 frames
-        timeout_dets = [
-            d
-            for d in results[0].detections
-            if d.detector_name == "TimeoutDetector"
-        ]
+        timeout_dets = [d for d in results[0].detections if d.detector_name == "TimeoutDetector"]
         assert len(timeout_dets) >= 1
 
     def test_discover_sessions_non_uuid_filename(self, tmp_path):
@@ -796,8 +771,9 @@ class TestAdditionalEdgeCases:
 
     def test_empty_summary_dataframe(self):
         """episodes_to_summary_df on empty list returns empty DataFrame."""
-        from orbit.dashboard.data_loader import episodes_to_summary_df
         import pandas as pd
+
+        from orbit.dashboard.data_loader import episodes_to_summary_df
 
         df = episodes_to_summary_df([])
         assert isinstance(df, pd.DataFrame)

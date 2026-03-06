@@ -21,7 +21,6 @@ from PIL import Image
 from orbit.logger.episode_logger import EpisodeLogger
 from orbit.logger.schemas import LoggerConfig, Outcome
 
-
 # ---------------------------------------------------------------------------
 # Fixtures
 # ---------------------------------------------------------------------------
@@ -44,9 +43,7 @@ def synthetic_data_dir(tmp_path):
         for _ in range(3):
             logger.start_episode()
             for step in range(10):
-                img = Image.fromarray(
-                    rng.integers(100, 200, (32, 32, 3), dtype=np.uint8)
-                )
+                img = Image.fromarray(rng.integers(100, 200, (32, 32, 3), dtype=np.uint8))
                 logger.log_frame(
                     joint_positions=(rng.standard_normal(6) * 0.1).tolist(),
                     gripper_state=float(np.clip(rng.random(), 0, 1)),
@@ -60,9 +57,7 @@ def synthetic_data_dir(tmp_path):
         for _ in range(2):
             logger.start_episode()
             for step in range(8):
-                img = Image.fromarray(
-                    rng.integers(10, 40, (32, 32, 3), dtype=np.uint8)
-                )
+                img = Image.fromarray(rng.integers(10, 40, (32, 32, 3), dtype=np.uint8))
                 logger.log_frame(
                     joint_positions=(rng.standard_normal(6) * 0.1).tolist(),
                     gripper_state=float(np.clip(rng.random(), 0, 1)),
@@ -219,9 +214,7 @@ class TestStreamlitServer:
     def test_streamlit_starts_headlessly(self, synthetic_data_dir):
         """Verify the Streamlit app starts and responds to health checks."""
         port = _find_free_port()
-        app_path = str(
-            Path(__file__).parent.parent / "orbit" / "dashboard" / "app.py"
-        )
+        app_path = str(Path(__file__).parent.parent / "orbit" / "dashboard" / "app.py")
 
         proc = subprocess.Popen(
             [

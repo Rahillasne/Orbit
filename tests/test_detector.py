@@ -1,7 +1,5 @@
 """Tests for orbit.detector module."""
 
-import pytest
-
 from orbit.detector.legacy import DetectorConfig, HeuristicDetector
 
 
@@ -60,7 +58,7 @@ class TestHeuristicDetector:
         # With very strict thresholds, even a "successful" episode can fail
         config = DetectorConfig(
             reward_threshold=100.0,  # impossibly high
-            max_episode_length=5,    # very short max
+            max_episode_length=5,  # very short max
         )
         detector = HeuristicDetector(config)
         result = detector.detect(sample_episode)

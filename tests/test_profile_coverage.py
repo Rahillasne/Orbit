@@ -4,11 +4,9 @@ from __future__ import annotations
 
 import faiss
 import numpy as np
-import pytest
 
 from orbit.profile.coverage import CoverageAnalyzer
 from orbit.profile.types import EmbeddingIndex
-
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -53,10 +51,12 @@ class TestCoverageAnalyzer:
         c1 = rng.standard_normal(dim).astype(np.float32)
         c2 = -c1  # opposite direction
 
-        embs = np.vstack([
-            _make_cluster(30, dim, c1, std=0.02, seed=1),
-            _make_cluster(30, dim, c2, std=0.02, seed=2),
-        ])
+        embs = np.vstack(
+            [
+                _make_cluster(30, dim, c1, std=0.02, seed=1),
+                _make_cluster(30, dim, c2, std=0.02, seed=2),
+            ]
+        )
         ei = _build_index(embs)
 
         analyzer = CoverageAnalyzer(n_clusters=10, min_cluster_size=5)
@@ -97,10 +97,12 @@ class TestCoverageAnalyzer:
         center_y = -center_x
 
         embs_a = _make_cluster(30, dim, center_x, std=0.02, seed=1)
-        embs_b = np.vstack([
-            _make_cluster(30, dim, center_x, std=0.02, seed=1),
-            _make_cluster(30, dim, center_y, std=0.02, seed=2),
-        ])
+        embs_b = np.vstack(
+            [
+                _make_cluster(30, dim, center_x, std=0.02, seed=1),
+                _make_cluster(30, dim, center_y, std=0.02, seed=2),
+            ]
+        )
 
         idx_a = _build_index(embs_a)
         idx_b = _build_index(embs_b)

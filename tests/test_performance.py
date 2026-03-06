@@ -2,13 +2,13 @@
 """
 Test 6: Performance Benchmarking — Real-world scenario timing.
 """
+
 import os
-import sys
-import time
-import tempfile
 import subprocess
+import sys
+import tempfile
+import time
 from pathlib import Path
-from uuid import uuid4
 
 import numpy as np
 
@@ -42,6 +42,7 @@ def bench_episode_logging():
         elapsed = time.time() - start
         ms_per_frame = elapsed / n_frames * 1000
         from orbit.logger.schemas import Outcome
+
         logger.end_episode(outcome=Outcome.SUCCESS)
 
         RESULTS["log_frame_ms"] = ms_per_frame
@@ -50,9 +51,10 @@ def bench_episode_logging():
 
 def bench_episode_logging_with_images():
     """1b. Episode logging with images. Target: < 5ms per frame."""
+    from PIL import Image
+
     from orbit.logger.episode_logger import EpisodeLogger
     from orbit.logger.schemas import LoggerConfig
-    from PIL import Image
 
     with tempfile.TemporaryDirectory() as tmpdir:
         config = LoggerConfig(storage_dir=tmpdir, task_name="bench_img", save_images=True)
@@ -77,25 +79,30 @@ def bench_episode_logging_with_images():
         elapsed = time.time() - start
         ms_per_frame = elapsed / n_frames * 1000
         from orbit.logger.schemas import Outcome
+
         logger.end_episode(outcome=Outcome.SUCCESS)
 
         RESULTS["log_frame_with_img_ms"] = ms_per_frame
-        print(f"  Frame logging (w/ images): {ms_per_frame:.3f} ms/frame ({n_frames} frames in {elapsed:.2f}s)")
+        print(
+            f"  Frame logging (w/ images): {ms_per_frame:.3f} ms/frame"
+            f" ({n_frames} frames in {elapsed:.2f}s)"
+        )
 
 
 def bench_detector_pipeline():
     """4. Detector pipeline speed. Target: < 100ms per episode."""
-    from orbit.logger.schemas import LoggerConfig
-    from orbit.logger.storage import HDF5Storage
+    from uuid import UUID
+
     from orbit.detector.heuristic import (
         DetectorPipeline,
         GripperDropDetector,
-        StallDetector,
         OutOfBoundsDetector,
-        TimeoutDetector,
         RewardThresholdDetector,
+        StallDetector,
+        TimeoutDetector,
     )
-    from uuid import UUID
+    from orbit.logger.schemas import LoggerConfig
+    from orbit.logger.storage import HDF5Storage
 
     data_dir = "/tmp/orbit-test-data"
     session_file = list(Path(data_dir).glob("session_*.h5"))[0]
@@ -116,12 +123,15 @@ def bench_detector_pipeline():
     )
 
     start = time.time()
-    results = pipeline.run_batch(episodes)
+    pipeline.run_batch(episodes)
     elapsed = time.time() - start
     ms_per_episode = elapsed / len(episodes) * 1000
 
     RESULTS["detect_per_episode_ms"] = ms_per_episode
-    print(f"  Detection pipeline: {ms_per_episode:.1f} ms/episode ({len(episodes)} episodes in {elapsed:.3f}s)")
+    print(
+        f"  Detection pipeline: {ms_per_episode:.1f} ms/episode"
+        f" ({len(episodes)} episodes in {elapsed:.3f}s)"
+    )
 
 
 def bench_dashboard_start():
@@ -134,10 +144,22 @@ def bench_dashboard_start():
 
     start = time.time()
     proc = subprocess.Popen(
-        [sys.executable, "-m", "streamlit", "run", "orbit/dashboard/app.py",
-         "--server.port", "8503", "--server.headless", "true",
-         "--", "--data-dir", "/tmp/orbit-test-data"],
-        stdout=subprocess.PIPE, stderr=subprocess.PIPE,
+        [
+            sys.executable,
+            "-m",
+            "streamlit",
+            "run",
+            "orbit/dashboard/app.py",
+            "--server.port",
+            "8503",
+            "--server.headless",
+            "true",
+            "--",
+            "--data-dir",
+            "/tmp/orbit-test-data",
+        ],
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
         cwd=str(Path(__file__).resolve().parent.parent),
         env={**os.environ, "PYTHONPATH": str(Path(__file__).resolve().parent.parent)},
     )
@@ -172,19 +194,20 @@ def bench_dashboard_start():
 
 def bench_full_pipeline():
     """6. Full pipeline speed. Target: < 60 seconds on CPU for 20 episodes."""
-    from orbit.logger.schemas import LoggerConfig
-    from orbit.logger.storage import HDF5Storage
+    from uuid import UUID
+
     from orbit.detector.heuristic import (
         DetectorPipeline,
         GripperDropDetector,
-        StallDetector,
         OutOfBoundsDetector,
-        TimeoutDetector,
         RewardThresholdDetector,
+        StallDetector,
+        TimeoutDetector,
     )
     from orbit.detector.legacy import DetectionResult
+    from orbit.logger.schemas import LoggerConfig
+    from orbit.logger.storage import HDF5Storage
     from orbit.prescriber.prescriber import Prescriber
-    from uuid import UUID
 
     data_dir = "/tmp/orbit-test-data"
     session_file = list(Path(data_dir).glob("session_*.h5"))[0]
@@ -228,13 +251,13 @@ def bench_full_pipeline():
                 )
             )
     prescriber = Prescriber()
-    report = prescriber.prescribe(legacy_results)
+    prescriber.prescribe(legacy_results)
     prescribe_time = time.time() - t0
 
     total_time = time.time() - start
     RESULTS["full_pipeline_sec"] = total_time
 
-    print(f"  Full pipeline breakdown:")
+    print("  Full pipeline breakdown:")
     print(f"    Load:      {load_time:.2f}s")
     print(f"    Detect:    {detect_time:.3f}s")
     print(f"    Prescribe: {prescribe_time:.3f}s")

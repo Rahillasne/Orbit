@@ -3,10 +3,8 @@
 from __future__ import annotations
 
 import numpy as np
-import pytest
 
 from orbit.profile.quality import QualityEstimator
-
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -24,9 +22,7 @@ def _make_deterministic_episode(
     return {"episode_id": episode_id, "states": states, "actions": actions}
 
 
-def _make_random_episode(
-    episode_id: int, T: int = 100, state_dim: int = 4, seed: int = 0
-) -> dict:
+def _make_random_episode(episode_id: int, T: int = 100, state_dim: int = 4, seed: int = 0) -> dict:
     """Episode where actions are independent of states."""
     rng = np.random.default_rng(seed)
     states = rng.standard_normal((T, state_dim))
@@ -97,8 +93,7 @@ class TestQualityEstimator:
 
         # Within 20% of true value
         assert abs(estimated_mi - true_mi) / true_mi < 0.20, (
-            f"KSG estimate {estimated_mi:.4f} not within 20% of "
-            f"true MI {true_mi:.4f}"
+            f"KSG estimate {estimated_mi:.4f} not within 20% of true MI {true_mi:.4f}"
         )
 
     def test_edge_case_single_episode(self):

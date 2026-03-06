@@ -39,7 +39,6 @@ def analyzer(mock_clip):
 
 
 class TestEmbeddingGapAnalyzer:
-
     def test_embed_images_shape(self, analyzer):
         images = [
             Image.fromarray(np.random.randint(0, 255, (64, 64, 3), dtype=np.uint8))

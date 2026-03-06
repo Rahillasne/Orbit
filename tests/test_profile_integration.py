@@ -9,14 +9,10 @@ from unittest.mock import patch
 import faiss
 import h5py
 import numpy as np
-import pytest
 from PIL import Image
 
-from orbit.profile.capability import CapabilityScorer
-from orbit.profile.coverage import CoverageAnalyzer
 from orbit.profile.embedding import EmbeddingExtractor
 from orbit.profile.profiler import DatasetProfiler
-from orbit.profile.quality import QualityEstimator
 from orbit.profile.report import ProfileReporter
 from orbit.profile.types import (
     CapabilityScore,
@@ -25,7 +21,6 @@ from orbit.profile.types import (
     EmbeddingIndex,
     QualityMetrics,
 )
-
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -52,7 +47,8 @@ def _create_synthetic_dataset(tmp_path: Path, n_episodes: int = 20, frames_per_e
             # State/action data
             states = rng.standard_normal((frames_per_ep, state_dim)).astype(np.float32)
             W = rng.standard_normal((state_dim, action_dim)).astype(np.float32)
-            actions = (states @ W + rng.standard_normal((frames_per_ep, action_dim)) * 0.1).astype(np.float32)
+            noise = rng.standard_normal((frames_per_ep, action_dim)) * 0.1
+            actions = (states @ W + noise).astype(np.float32)
             grp.create_dataset("states", data=states)
             grp.create_dataset("actions", data=actions)
 
@@ -113,10 +109,26 @@ def _build_mock_profile(n_episodes: int = 10, n_frames: int = 100) -> DatasetPro
     # Capabilities (some weak, some strong)
     capabilities = [
         CapabilityScore("pick up red cube", 0.8, 0.9, 8, 0.6, 0.2, None),
-        CapabilityScore("open drawer", 0.3, 0.5, 3, 0.3, 0.1,
-                        "Low visual similarity to task 'open drawer' — dataset may not contain relevant scenes."),
-        CapabilityScore("pour water", 0.2, 0.4, 2, 0.2, 0.05,
-                        "Relevant frames found but concentrated in few episodes — collect more diverse demonstrations."),
+        CapabilityScore(
+            "open drawer",
+            0.3,
+            0.5,
+            3,
+            0.3,
+            0.1,
+            "Low visual similarity to task 'open drawer'"
+            " — dataset may not contain relevant scenes.",
+        ),
+        CapabilityScore(
+            "pour water",
+            0.2,
+            0.4,
+            2,
+            0.2,
+            0.05,
+            "Relevant frames found but concentrated in few episodes"
+            " — collect more diverse demonstrations.",
+        ),
     ]
 
     profile = DatasetProfile(
@@ -226,4 +238,7 @@ class TestProfileIntegration:
         assert profile.quality is not None
         assert len(profile.capabilities) == 0
         assert len(profile.prescriptions) == 0
-        print(f"Empty tasks: coverage={profile.coverage.overall_coverage_score:.3f}, quality={profile.quality.aggregate_score:.3f}")
+        print(
+            f"Empty tasks: coverage={profile.coverage.overall_coverage_score:.3f},"
+            f" quality={profile.quality.aggregate_score:.3f}"
+        )

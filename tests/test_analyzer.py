@@ -21,7 +21,6 @@ from orbit.analyzer.models import (
 )
 from orbit.logger.schemas import Episode, EpisodeFrame, Outcome
 
-
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
@@ -30,10 +29,7 @@ from orbit.logger.schemas import Episode, EpisodeFrame, Outcome
 def _make_test_images(n: int, seed: int = 42) -> list[Image.Image]:
     """Generate synthetic test images."""
     rng = np.random.default_rng(seed)
-    return [
-        Image.fromarray(rng.integers(0, 255, (224, 224, 3), dtype=np.uint8))
-        for _ in range(n)
-    ]
+    return [Image.fromarray(rng.integers(0, 255, (224, 224, 3), dtype=np.uint8)) for _ in range(n)]
 
 
 def _make_synthetic_embeddings(
@@ -64,9 +60,7 @@ def _make_episode_with_images(
     img_dir = tmp_path / "images" / prefix
     img_dir.mkdir(parents=True, exist_ok=True)
     for i in range(n_frames):
-        img = Image.fromarray(
-            np.random.randint(0, 255, (224, 224, 3), dtype=np.uint8)
-        )
+        img = Image.fromarray(np.random.randint(0, 255, (224, 224, 3), dtype=np.uint8))
         img_path = img_dir / f"frame_{i:04d}.png"
         img.save(img_path)
         frames.append(
@@ -180,9 +174,9 @@ class TestFAISSIndex:
         training = _make_synthetic_embeddings(100, dim=768, seed=0)
         analyzer._build_faiss_index(training)
         query = _make_synthetic_embeddings(10, dim=768, seed=1)
-        D, I = analyzer._faiss_index.search(query, 5)
-        assert D.shape == (10, 5)
-        assert I.shape == (10, 5)
+        dists, indices = analyzer._faiss_index.search(query, 5)
+        assert dists.shape == (10, 5)
+        assert indices.shape == (10, 5)
 
     def test_cosine_similarity_self_query(self, analyzer):
         """Querying identical vectors should yield cosine similarity ~1.0."""
@@ -212,15 +206,11 @@ class TestGapScores:
         center = np.zeros(768, dtype=np.float32)
         center[0] = 1.0
         # Use small std so noise doesn't overwhelm the center direction
-        training = _make_synthetic_embeddings(
-            100, dim=768, center=center, std=0.01, seed=0
-        )
+        training = _make_synthetic_embeddings(100, dim=768, center=center, std=0.01, seed=0)
         analyzer._training_embeddings = training
         analyzer._build_faiss_index(training)
 
-        near_embs = _make_synthetic_embeddings(
-            10, dim=768, center=center, std=0.01, seed=99
-        )
+        near_embs = _make_synthetic_embeddings(10, dim=768, center=center, std=0.01, seed=99)
         D, _ = analyzer._faiss_index.search(near_embs, analyzer.config.num_neighbors)
         gap_scores = 1.0 - D.mean(axis=1)
         assert np.all(gap_scores < 0.15)
@@ -229,17 +219,13 @@ class TestGapScores:
         """Points orthogonal to training should have high gap scores."""
         center1 = np.zeros(768, dtype=np.float32)
         center1[0] = 1.0
-        training = _make_synthetic_embeddings(
-            100, dim=768, center=center1, std=0.01, seed=0
-        )
+        training = _make_synthetic_embeddings(100, dim=768, center=center1, std=0.01, seed=0)
         analyzer._training_embeddings = training
         analyzer._build_faiss_index(training)
 
         center2 = np.zeros(768, dtype=np.float32)
         center2[1] = 1.0
-        far_embs = _make_synthetic_embeddings(
-            10, dim=768, center=center2, std=0.01, seed=99
-        )
+        far_embs = _make_synthetic_embeddings(10, dim=768, center=center2, std=0.01, seed=99)
         D, _ = analyzer._faiss_index.search(far_embs, analyzer.config.num_neighbors)
         gap_scores = 1.0 - D.mean(axis=1)
         assert np.all(gap_scores > 0.5)
@@ -271,9 +257,7 @@ class TestGapScores:
         analyzer._training_embeddings = training
         analyzer._build_faiss_index(training)
 
-        ep = _make_episode_with_images(
-            tmp_path, 5, Outcome.SUCCESS, prefix="test"
-        )
+        ep = _make_episode_with_images(tmp_path, 5, Outcome.SUCCESS, prefix="test")
         frame_results, episode_summaries = analyzer.compute_gap_scores([ep])
         assert len(frame_results) == 5
         assert len(episode_summaries) == 1
@@ -325,9 +309,7 @@ class TestCaching:
         img_dir = tmp_path / "train_imgs"
         img_dir.mkdir()
         for i in range(5):
-            img = Image.fromarray(
-                np.random.randint(0, 255, (224, 224, 3), dtype=np.uint8)
-            )
+            img = Image.fromarray(np.random.randint(0, 255, (224, 224, 3), dtype=np.uint8))
             img.save(img_dir / f"img_{i}.png")
 
         n1 = analyzer.index_training_data(img_dir)
@@ -361,9 +343,7 @@ class TestFailureClustering:
 
         all_embs = []
         for i, c in enumerate(centers):
-            cluster_embs = _make_synthetic_embeddings(
-                30, dim=dim, center=c, std=0.01, seed=i * 100
-            )
+            cluster_embs = _make_synthetic_embeddings(30, dim=dim, center=c, std=0.01, seed=i * 100)
             all_embs.append(cluster_embs)
         failure_embs = np.vstack(all_embs)
 
@@ -397,9 +377,7 @@ class TestFailureClustering:
 
         failure_eps = []
         for i in range(3):
-            ep = _make_episode_with_images(
-                tmp_path, 10, Outcome.FAILURE, prefix=f"fail_{i}"
-            )
+            ep = _make_episode_with_images(tmp_path, 10, Outcome.FAILURE, prefix=f"fail_{i}")
             failure_eps.append(ep)
 
         report = analyzer.cluster_failures(failure_eps)
@@ -483,17 +461,11 @@ class TestIntegration:
         training_dir = tmp_path / "training"
         training_dir.mkdir()
         for i in range(20):
-            img = Image.fromarray(
-                np.random.randint(0, 255, (224, 224, 3), dtype=np.uint8)
-            )
+            img = Image.fromarray(np.random.randint(0, 255, (224, 224, 3), dtype=np.uint8))
             img.save(training_dir / f"train_{i:04d}.png")
 
-        success_ep = _make_episode_with_images(
-            tmp_path, 10, Outcome.SUCCESS, prefix="success"
-        )
-        failure_ep = _make_episode_with_images(
-            tmp_path, 10, Outcome.FAILURE, prefix="failure"
-        )
+        success_ep = _make_episode_with_images(tmp_path, 10, Outcome.SUCCESS, prefix="success")
+        failure_ep = _make_episode_with_images(tmp_path, 10, Outcome.FAILURE, prefix="failure")
 
         output_dir = tmp_path / "viz_output"
         report = analyzer.analyze(
@@ -516,9 +488,7 @@ class TestIntegration:
     def test_analyze_with_image_list(self, analyzer, tmp_path):
         """Training from direct image list instead of directory."""
         training_images = _make_test_images(15)
-        ep = _make_episode_with_images(
-            tmp_path, 5, Outcome.SUCCESS, prefix="ep"
-        )
+        ep = _make_episode_with_images(tmp_path, 5, Outcome.SUCCESS, prefix="ep")
 
         report = analyzer.analyze(
             training_source=training_images,
@@ -533,14 +503,10 @@ class TestIntegration:
         training_dir = tmp_path / "training"
         training_dir.mkdir()
         for i in range(10):
-            img = Image.fromarray(
-                np.random.randint(0, 255, (224, 224, 3), dtype=np.uint8)
-            )
+            img = Image.fromarray(np.random.randint(0, 255, (224, 224, 3), dtype=np.uint8))
             img.save(training_dir / f"train_{i:04d}.png")
 
-        success_ep = _make_episode_with_images(
-            tmp_path, 5, Outcome.SUCCESS, prefix="s"
-        )
+        success_ep = _make_episode_with_images(tmp_path, 5, Outcome.SUCCESS, prefix="s")
         report = analyzer.analyze(
             training_source=training_dir,
             deployment_episodes=[success_ep],

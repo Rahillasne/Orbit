@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import json
 import threading
 import time
 
@@ -20,7 +19,6 @@ from orbit.logger.schemas import (
     Outcome,
 )
 from orbit.logger.storage import HDF5Storage, LeRobotExporter
-
 
 # ---------------------------------------------------------------------------
 # Schema validation
@@ -134,7 +132,7 @@ class TestEpisodeLogger:
 
     def test_context_manager(self, new_config):
         with EpisodeLogger(new_config) as logger:
-            ep_id = logger.start_episode()
+            logger.start_episode()
             logger.log_frame(
                 joint_positions=[0.1, 0.2, 0.3, 0.4, 0.5, 0.6],
                 gripper_state=0.5,
@@ -149,9 +147,7 @@ class TestEpisodeLogger:
         with EpisodeLogger(new_config) as logger:
             ep_id = logger.start_episode(task_name="grasp")
             assert logger.current_episode_id == ep_id
-            logger.log_frame(
-                joint_positions=[0.0] * 6, gripper_state=0.0, action=[0.0] * 6
-            )
+            logger.log_frame(joint_positions=[0.0] * 6, gripper_state=0.0, action=[0.0] * 6)
             ep = logger.end_episode(outcome=Outcome.FAILURE)
             assert ep.task_name == "grasp"
             assert ep.outcome == Outcome.FAILURE
@@ -189,9 +185,7 @@ class TestEpisodeLogger:
     def test_log_frame_without_start_raises(self, new_config):
         with EpisodeLogger(new_config) as logger:
             with pytest.raises(RuntimeError, match="No episode in progress"):
-                logger.log_frame(
-                    joint_positions=[0.0] * 6, gripper_state=0.0, action=[0.0] * 6
-                )
+                logger.log_frame(joint_positions=[0.0] * 6, gripper_state=0.0, action=[0.0] * 6)
 
     def test_dof_validation(self, new_config):
         with EpisodeLogger(new_config) as logger:
@@ -206,15 +200,11 @@ class TestEpisodeLogger:
     def test_auto_episode_id_increment(self, new_config):
         with EpisodeLogger(new_config) as logger:
             id1 = logger.start_episode()
-            logger.log_frame(
-                joint_positions=[0.0] * 6, gripper_state=0.0, action=[0.0] * 6
-            )
+            logger.log_frame(joint_positions=[0.0] * 6, gripper_state=0.0, action=[0.0] * 6)
             logger.end_episode()
 
             id2 = logger.start_episode()
-            logger.log_frame(
-                joint_positions=[0.0] * 6, gripper_state=0.0, action=[0.0] * 6
-            )
+            logger.log_frame(joint_positions=[0.0] * 6, gripper_state=0.0, action=[0.0] * 6)
             logger.end_episode()
 
             assert id1 != id2  # UUIDs should be unique
@@ -245,9 +235,7 @@ class TestEpisodeLogger:
         try:
             with EpisodeLogger(new_config) as logger:
                 logger.start_episode()
-                logger.log_frame(
-                    joint_positions=[0.0] * 6, gripper_state=0.0, action=[0.0] * 6
-                )
+                logger.log_frame(joint_positions=[0.0] * 6, gripper_state=0.0, action=[0.0] * 6)
                 episodes.append(logger._completed_episodes)
                 raise ValueError("simulated error")
         except ValueError:
@@ -282,9 +270,7 @@ class TestMockDeployment:
                     gripper = float(np.clip(np.random.random(), 0, 1))
                     # Solid-color test images (different color per episode)
                     color = (i * 50) % 256
-                    img = Image.fromarray(
-                        np.full((64, 64, 3), fill_value=color, dtype=np.uint8)
-                    )
+                    img = Image.fromarray(np.full((64, 64, 3), fill_value=color, dtype=np.uint8))
                     logger.log_frame(
                         joint_positions=joints,
                         gripper_state=gripper,
@@ -598,9 +584,7 @@ class TestBackgroundImageThread:
         with EpisodeLogger(config) as logger:
             logger.start_episode()
             for _ in range(5):
-                img = Image.fromarray(
-                    np.random.randint(0, 255, (32, 32, 3), dtype=np.uint8)
-                )
+                img = Image.fromarray(np.random.randint(0, 255, (32, 32, 3), dtype=np.uint8))
                 logger.log_frame(
                     joint_positions=[0.0] * 6,
                     gripper_state=0.0,
@@ -626,9 +610,7 @@ class TestBackgroundImageThread:
         with EpisodeLogger(config) as logger:
             logger.start_episode()
             for i in range(50):
-                img = Image.fromarray(
-                    np.full((16, 16, 3), fill_value=i % 256, dtype=np.uint8)
-                )
+                img = Image.fromarray(np.full((16, 16, 3), fill_value=i % 256, dtype=np.uint8))
                 logger.log_frame(
                     joint_positions=(np.random.randn(6) * 0.1).tolist(),
                     gripper_state=float(i % 2),

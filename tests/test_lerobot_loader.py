@@ -12,7 +12,6 @@ from PIL import Image
 
 from orbit.profile.loaders import DatasetLoader
 
-
 # ------------------------------------------------------------------
 # Fixtures
 # ------------------------------------------------------------------
@@ -52,7 +51,7 @@ def image_dir(tmp_path: Path) -> Path:
         img = Image.fromarray(np.random.randint(0, 255, (64, 64, 3), dtype=np.uint8))
         img.save(tmp_path / f"frame_{i:04d}.png")
     img = Image.fromarray(np.random.randint(0, 255, (64, 64, 3), dtype=np.uint8))
-    img.save(tmp_path / f"photo.jpg")
+    img.save(tmp_path / "photo.jpg")
     return tmp_path
 
 
@@ -120,6 +119,7 @@ class TestFromLeRobotSDK:
 
         def mock_getitem(idx):
             import torch
+
             return {
                 "observation.state": torch.randn(6),
                 "action": torch.randn(6),
@@ -128,15 +128,19 @@ class TestFromLeRobotSDK:
 
         mock_ds.__getitem__ = mock_getitem
 
-        with patch(
-            "orbit.profile.loaders.DatasetLoader._convert_via_lerobot_sdk"
-        ) as mock_convert:
+        with patch("orbit.profile.loaders.DatasetLoader._convert_via_lerobot_sdk"):
             # Instead of mocking the full SDK, directly test _write_hdf5
             episodes = [
-                {"episode_id": 0, "states": np.random.randn(10, 6).astype(np.float32),
-                 "actions": np.random.randn(10, 6).astype(np.float32)},
-                {"episode_id": 1, "states": np.random.randn(10, 6).astype(np.float32),
-                 "actions": np.random.randn(10, 6).astype(np.float32)},
+                {
+                    "episode_id": 0,
+                    "states": np.random.randn(10, 6).astype(np.float32),
+                    "actions": np.random.randn(10, 6).astype(np.float32),
+                },
+                {
+                    "episode_id": 1,
+                    "states": np.random.randn(10, 6).astype(np.float32),
+                    "actions": np.random.randn(10, 6).astype(np.float32),
+                },
             ]
             output_dir.mkdir(parents=True)
             DatasetLoader._write_hdf5(output_dir, episodes, {})
@@ -171,8 +175,11 @@ class TestFromLeRobotSDK:
 class TestWriteHDF5:
     def test_writes_with_images(self, tmp_path: Path):
         episodes = [
-            {"episode_id": 0, "states": np.ones((5, 4), dtype=np.float32),
-             "actions": np.zeros((5, 4), dtype=np.float32)},
+            {
+                "episode_id": 0,
+                "states": np.ones((5, 4), dtype=np.float32),
+                "actions": np.zeros((5, 4), dtype=np.float32),
+            },
         ]
         img_paths = {0: ["/fake/img0.png", "/fake/img1.png"]}
 
@@ -188,8 +195,11 @@ class TestWriteHDF5:
 
     def test_writes_without_images(self, tmp_path: Path):
         episodes = [
-            {"episode_id": 0, "states": np.ones((5, 4), dtype=np.float32),
-             "actions": np.zeros((5, 4), dtype=np.float32)},
+            {
+                "episode_id": 0,
+                "states": np.ones((5, 4), dtype=np.float32),
+                "actions": np.zeros((5, 4), dtype=np.float32),
+            },
         ]
 
         DatasetLoader._write_hdf5(tmp_path, episodes, {})
@@ -210,12 +220,14 @@ class TestWriteHDF5:
 class TestHelpers:
     def test_detect_columns_exact(self):
         import pandas as pd
+
         df = pd.DataFrame({"action": [[1, 2]], "observation.state": [[3, 4]]})
         assert DatasetLoader._detect_columns(df, "action") == ["action"]
         assert DatasetLoader._detect_columns(df, "observation.state") == ["observation.state"]
 
     def test_detect_columns_dotted(self):
         import pandas as pd
+
         df = pd.DataFrame({"action.0": [1], "action.1": [2], "action.2": [3]})
         cols = DatasetLoader._detect_columns(df, "action")
         assert cols == ["action.0", "action.1", "action.2"]
