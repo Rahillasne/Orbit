@@ -4,11 +4,11 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "orbit-robotics"
-version = "1.0.0"
+version = "1.1.0"
 description = "Deployment diagnostics for learned robot policies"
 readme = "README.md"
 license = {text = "Apache-2.0"}
-requires-python = ">=3.10,<3.12"
+requires-python = ">=3.10,<3.13"
 authors = [
     {name = "Rahil Lasne"},
 ]
@@ -25,54 +25,58 @@ classifiers = [
 ]
 
 dependencies = [
-    "lerobot==0.4.2",
-    "torch>=2.0.0",
-    "transformers>=4.30.0",
+    "click>=8.1.0",
+    "pyyaml>=6.0",
     "numpy>=1.24.0",
-    "pandas>=2.0.0",
     "h5py>=3.8.0",
-    "filelock>=3.12.0",
+    "rich>=13.0.0",
     "pydantic>=2.0.0",
     "pydantic-settings>=2.0.0",
-    "faiss-cpu>=1.7.4",
-    "umap-learn>=0.5.3",
-    "streamlit>=1.28.0",
-    "plotly>=5.15.0",
+    "filelock>=3.12.0",
     "Pillow>=9.5.0",
-    "open-clip-torch>=2.20.0",
-    "sentencepiece>=0.1.99",
-    "pyyaml>=6.0",
-    "click>=8.1.0",
     "tqdm>=4.65.0",
-    "hdbscan>=0.8.33",
 ]
 
 [project.optional-dependencies]
-light = [
+profile = [
+    "faiss-cpu>=1.7.4",
+    "scikit-learn>=1.2.0",
+    "scipy>=1.10.0",
+    "hdbscan>=0.8.33",
+    "Pillow>=9.5.0",
+    "transformers>=4.30.0",
+    "torch>=2.0.0",
+    "open-clip-torch>=2.20.0",
+    "umap-learn>=0.5.3",
+    "sentencepiece>=0.1.99",
+]
+detection = [
+    "pandas>=2.0.0",
+]
+vlm = [
+    "openai>=1.0",
+    "anthropic>=0.20.0",
+]
+dashboard = [
     "streamlit>=1.28.0",
     "plotly>=5.15.0",
     "pandas>=2.0.0",
-    "h5py>=3.8.0",
-    "numpy>=1.24.0",
-    "pydantic>=2.0.0",
-    "pydantic-settings>=2.0.0",
-    "filelock>=3.12.0",
-    "Pillow>=9.5.0",
-    "pyyaml>=6.0",
-    "click>=8.1.0",
-    "tqdm>=4.65.0",
 ]
-vlm = ["openai>=1.0"]
+lerobot = [
+    "lerobot>=0.4.0",
+]
+loader = [
+    "huggingface_hub>=0.20.0",
+    "pandas>=2.0.0",
+    "opencv-python>=4.8.0",
+]
+full = [
+    "orbit-robotics[profile,detection,vlm,dashboard,lerobot]",
+]
 dev = [
     "pytest>=7.4.0",
     "pytest-cov>=4.1.0",
     "ruff>=0.1.0",
-    "mypy>=1.5.0",
-    "pre-commit>=3.4.0",
-]
-test = [
-    "pytest>=7.4.0",
-    "pytest-cov>=4.1.0",
 ]
 
 [project.urls]

@@ -12,7 +12,6 @@ from uuid import UUID
 
 import h5py
 import numpy as np
-import pandas as pd
 from filelock import FileLock
 from PIL import Image
 
@@ -477,6 +476,8 @@ class LeRobotExporter:
                 row[f"action_{j}"] = a
             rows.append(row)
 
+        import pandas as pd
+
         parquet_path = data_dir / f"episode_{ep_id_short}.parquet"
         pd.DataFrame(rows).to_parquet(parquet_path, compression="snappy", index=False)
 
@@ -654,6 +655,8 @@ class LegacyParquetStorage:
         return self.storage_dir / "images" / f"episode_{episode_id:06d}"
 
     def save_episode(self, episode: EpisodeRecord) -> Path:
+        import pandas as pd
+
         path = self._episode_path(episode.episode_id)
         rows: list[dict[str, Any]] = []
         for step in episode.steps:
@@ -708,6 +711,8 @@ class LegacyParquetStorage:
         return path
 
     def load_episode(self, episode_id: int) -> EpisodeRecord:
+        import pandas as pd
+
         path = self._episode_path(episode_id)
         meta_path = self._meta_path(episode_id)
         if not path.exists():

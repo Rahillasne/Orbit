@@ -4,11 +4,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 
-import faiss
 import numpy as np
-import open_clip
-import torch
-import umap
 from PIL import Image
 
 from orbit.logger.schemas import EpisodeRecord
@@ -63,6 +59,8 @@ class EmbeddingGapAnalyzer:
     def _load_clip_model(self) -> None:
         if self._model is not None:
             return
+        import open_clip
+
         self._model, _, self._preprocess = open_clip.create_model_and_transforms(
             self.config.clip_model_name, pretrained=self.config.clip_pretrained
         )
@@ -75,6 +73,7 @@ class EmbeddingGapAnalyzer:
         Returns an array of shape ``(N, D)`` with L2-normalized embeddings.
         """
         self._load_clip_model()
+        import torch
 
         preprocessed = torch.stack([self._preprocess(img) for img in images])
         preprocessed = preprocessed.to(self.config.device)
@@ -125,8 +124,10 @@ class EmbeddingGapAnalyzer:
 
         return np.array(all_embeddings, dtype=np.float32)
 
-    def _build_faiss_index(self, embeddings: np.ndarray) -> faiss.IndexFlatL2:
+    def _build_faiss_index(self, embeddings: np.ndarray):
         """Build a FAISS L2 index from embeddings."""
+        import faiss
+
         dim = embeddings.shape[1]
         index = faiss.IndexFlatL2(dim)
         index.add(embeddings.astype(np.float32))
@@ -134,6 +135,8 @@ class EmbeddingGapAnalyzer:
 
     def compute_umap(self, embeddings: np.ndarray) -> np.ndarray:
         """Reduce embeddings to 2D via UMAP."""
+        import umap
+
         reducer = umap.UMAP(
             n_neighbors=min(self.config.umap_n_neighbors, len(embeddings) - 1),
             min_dist=self.config.umap_min_dist,

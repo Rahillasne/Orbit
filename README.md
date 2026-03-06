@@ -56,6 +56,25 @@ with EpisodeLogger(config) as logger:
     episode = logger.end_episode(outcome=Outcome.SUCCESS)
 ```
 
+## Dataset Profiler
+
+Profile any robot dataset to understand its capabilities before training:
+
+```bash
+# Profile a local dataset
+orbit profile --data-dir ./my_dataset --tasks "pick up cup" "open drawer"
+
+# Profile from HuggingFace Hub
+orbit profile --hub-repo lerobot/aloha_sim_insertion_human \
+              --tasks "insert peg" --format json
+
+# Compare two datasets
+orbit profile-compare --dataset-a ./dataset_v1 --dataset-b ./dataset_v2 \
+                      --tasks "pick and place"
+```
+
+The profiler analyzes embedding coverage, scores task capabilities, estimates data quality, and generates ranked prescriptions for what to collect next. Access it interactively via the dashboard's "Dataset Profiler" page.
+
 ## Built for LeRobot
 
 ORBIT is designed as a companion to HuggingFace's [LeRobot](https://github.com/huggingface/lerobot) framework. It reads LeRobot dataset formats, plugs into LeRobot policy inference loops, and exports prescriptions as LeRobot-compatible data collection tasks.
@@ -78,7 +97,7 @@ pip install -e ".[light]"
 
 ## Project Status
 
-ORBIT is in early development (v1.0). The core pipeline works end-to-end on manipulation tasks with camera input. Contributions welcome — see [CONTRIBUTING.md](CONTRIBUTING.md).
+ORBIT is in active development (v1.1). The core pipeline works end-to-end on manipulation tasks with camera input. v1.1 adds dataset profiling for proactive coverage analysis. Contributions welcome — see [CONTRIBUTING.md](CONTRIBUTING.md).
 
 ## License
 

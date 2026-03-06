@@ -12,11 +12,10 @@ from orbit.analyzer.embedding_gap import AnalyzerConfig, EmbeddingGapAnalyzer
 @pytest.fixture
 def mock_clip():
     """Patch open_clip to return a fake model producing random embeddings."""
-    mock_model = MagicMock()
-    mock_preprocess = MagicMock(side_effect=lambda img: np.random.randn(3, 224, 224).astype(np.float32))
-
-    # Make encode_image return random embeddings
     import torch
+
+    mock_model = MagicMock()
+    mock_preprocess = MagicMock(side_effect=lambda img: torch.randn(3, 224, 224))
 
     def fake_encode_image(batch):
         n = batch.shape[0] if hasattr(batch, "shape") else len(batch)
@@ -26,7 +25,8 @@ def mock_clip():
     mock_model.eval = MagicMock(return_value=mock_model)
     mock_model.to = MagicMock(return_value=mock_model)
 
-    with patch("orbit.analyzer.embedding_gap.open_clip") as mock_oc:
+    with patch.dict("sys.modules", {"open_clip": MagicMock()}) as modules:
+        mock_oc = modules["open_clip"]
         mock_oc.create_model_and_transforms.return_value = (mock_model, None, mock_preprocess)
         mock_oc.get_tokenizer.return_value = MagicMock()
         yield mock_oc
@@ -45,14 +45,7 @@ class TestEmbeddingGapAnalyzer:
             Image.fromarray(np.random.randint(0, 255, (64, 64, 3), dtype=np.uint8))
             for _ in range(5)
         ]
-        # Need to patch torch.stack since preprocess returns numpy
-        import torch
-        with patch("orbit.analyzer.embedding_gap.torch") as mock_torch:
-            mock_torch.no_grad.return_value.__enter__ = MagicMock()
-            mock_torch.no_grad.return_value.__exit__ = MagicMock(return_value=False)
-            mock_torch.stack.return_value = torch.randn(5, 3, 224, 224)
-
-            embeddings = analyzer.embed_images(images)
+        embeddings = analyzer.embed_images(images)
 
         assert embeddings.shape[0] == 5
         assert embeddings.shape[1] > 0

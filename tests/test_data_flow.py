@@ -12,17 +12,25 @@ from collections import Counter
 from pathlib import Path
 from uuid import UUID
 
+import pytest
+
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
 DATA_DIR = Path("/tmp/orbit-test-data")
 SCORECARD = {}
 
+# This is an integration test that requires pre-generated data.
+# Skip the entire module when the data directory is missing.
+pytestmark = pytest.mark.skipif(
+    not list(DATA_DIR.glob("session_*.h5")),
+    reason=f"No session .h5 files in {DATA_DIR}",
+)
+
 
 def find_session_file():
     h5_files = list(DATA_DIR.glob("session_*.h5"))
     if not h5_files:
-        print("❌ No session .h5 files found in", DATA_DIR)
-        sys.exit(1)
+        pytest.skip(f"No session .h5 files found in {DATA_DIR}")
     return h5_files[0]
 
 

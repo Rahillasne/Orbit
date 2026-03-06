@@ -5,8 +5,6 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 
 import numpy as np
-import open_clip
-import torch
 from PIL import Image
 
 from orbit.logger.schemas import EpisodeRecord
@@ -62,6 +60,8 @@ class FailureDescriber:
     def _load_model(self) -> None:
         if self._model is not None:
             return
+        import open_clip
+
         self._model, _, self._preprocess = open_clip.create_model_and_transforms(
             self._model_name, pretrained=self._pretrained
         )
@@ -149,6 +149,8 @@ class FailureDescriber:
 
     def _classify_images(self, images: list[Image.Image]) -> dict[str, float]:
         """Compute CLIP similarity scores between images and failure prompts."""
+        import torch
+
         # Encode images
         img_tensors = torch.stack([self._preprocess(img) for img in images])
         img_tensors = img_tensors.to(self._device)

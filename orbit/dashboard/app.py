@@ -580,6 +580,384 @@ def page_prescriptions() -> None:
 
 
 # ═══════════════════════════════════════════════════════════════════════════
+# PAGE 6: Dataset Profiler
+# ═══════════════════════════════════════════════════════════════════════════
+
+
+def _traffic_light(score: float) -> str:
+    """Return a traffic-light color string for a 0-1 score."""
+    if score >= 0.7:
+        return "#2ecc71"  # green
+    if score >= 0.4:
+        return "#f39c12"  # yellow
+    return "#e74c3c"  # red
+
+
+def _verdict(score: float) -> str:
+    """Map a 0-1 score to a human verdict."""
+    if score >= 0.7:
+        return "Strong"
+    if score >= 0.5:
+        return "Adequate"
+    if score >= 0.2:
+        return "Weak"
+    return "No Coverage"
+
+
+def page_dataset_profiler() -> None:
+    """Dataset Profiler — analyze coverage, capabilities, and quality."""
+    st.header("Dataset Profiler")
+
+    # ------------------------------------------------------------------
+    # Section 1: Data Input
+    # ------------------------------------------------------------------
+    st.subheader("Data Input")
+
+    input_mode = st.radio("Input source", ["Local Directory", "HuggingFace Hub"], horizontal=True)
+
+    if input_mode == "Local Directory":
+        data_path = st.text_input(
+            "Dataset directory",
+            value=st.session_state.get("data_dir", "./orbit_data"),
+            key="profiler_data_path",
+        )
+    else:
+        data_path = st.text_input(
+            "HuggingFace repo ID",
+            placeholder="lerobot/aloha_sim_insertion_human",
+            key="profiler_hub_repo",
+        )
+
+    task_text = st.text_area(
+        "Task descriptions (one per line)",
+        placeholder="pick up cup\nopen drawer\nwipe surface",
+        key="profiler_tasks",
+    )
+
+    # Comparison inputs
+    with st.expander("Comparison Mode (optional)"):
+        st.caption("Provide a second dataset to compare side-by-side.")
+        compare_path = st.text_input("Second dataset directory", key="profiler_compare_path")
+
+    col_run, col_status = st.columns([1, 3])
+    run_clicked = col_run.button("Profile Dataset", type="primary")
+
+    if run_clicked:
+        if not data_path:
+            st.error("Please provide a dataset path or repo ID.")
+            return
+
+        try:
+            from orbit.profile.profiler import DatasetProfiler
+            from orbit.profile.report import ProfileReporter
+        except ImportError:
+            st.error(
+                "Profile dependencies not installed. Run: `pip install orbit-robotics[profile]`"
+            )
+            return
+
+        tasks = [t.strip() for t in task_text.strip().splitlines() if t.strip()] or None
+
+        with st.spinner("Profiling dataset — this may take several minutes..."):
+            try:
+                profiler = DatasetProfiler()
+                if input_mode == "Local Directory":
+                    profile_result = profiler.profile(data_path, task_descriptions=tasks)
+                else:
+                    profile_result = profiler.profile_from_hub(data_path, task_descriptions=tasks)
+
+                reporter = ProfileReporter()
+                dashboard_data = reporter.generate_dashboard_data(profile_result)
+
+                st.session_state["profiler_profile"] = profile_result
+                st.session_state["profiler_dashboard_data"] = dashboard_data
+            except FileNotFoundError as e:
+                st.error(f"Dataset not found: {e}")
+                return
+            except Exception as e:
+                st.error(f"Profiling failed: {e}")
+                return
+
+        # Run comparison if a second path was provided
+        if compare_path.strip():
+            with st.spinner("Profiling second dataset for comparison..."):
+                try:
+                    profile_b = profiler.profile(compare_path.strip(), task_descriptions=tasks)
+                    st.session_state["profiler_profile_b"] = profile_b
+                    reporter_b = ProfileReporter()
+                    st.session_state["profiler_dashboard_data_b"] = (
+                        reporter_b.generate_dashboard_data(profile_b)
+                    )
+                except Exception as e:
+                    st.warning(f"Comparison profiling failed: {e}")
+
+        st.success("Profiling complete!")
+
+    # Guard: nothing to show yet
+    if "profiler_dashboard_data" not in st.session_state:
+        st.info("Configure inputs above and click **Profile Dataset** to begin.")
+        return
+
+    data = st.session_state["profiler_dashboard_data"]
+    profile_obj = st.session_state["profiler_profile"]
+
+    # ------------------------------------------------------------------
+    # Section 2: Overview
+    # ------------------------------------------------------------------
+    st.subheader("Overview")
+    stats = data["summary_stats"]
+    c1, c2, c3, c4 = st.columns(4)
+    c1.metric("Episodes", stats["num_episodes"])
+    c2.metric("Frames", stats["num_frames"])
+
+    cov = stats["overall_coverage"]
+    c3.metric("Coverage Score", f"{cov:.3f}")
+    qual = stats["aggregate_quality"]
+    c4.metric("Quality Score", f"{qual:.3f}")
+
+    # Traffic lights
+    tl1, tl2 = st.columns(2)
+    tl1.markdown(
+        f'<div style="display:inline-block;width:18px;height:18px;'
+        f'border-radius:50%;background:{_traffic_light(cov)}"></div>'
+        f" Coverage: **{cov:.3f}**",
+        unsafe_allow_html=True,
+    )
+    tl2.markdown(
+        f'<div style="display:inline-block;width:18px;height:18px;'
+        f'border-radius:50%;background:{_traffic_light(qual)}"></div>'
+        f" Quality: **{qual:.3f}**",
+        unsafe_allow_html=True,
+    )
+
+    # ------------------------------------------------------------------
+    # Section 3: Coverage Map
+    # ------------------------------------------------------------------
+    st.subheader("Coverage Map")
+    umap_data = data.get("coverage_umap")
+    if umap_data is not None:
+        import numpy as np
+
+        umap_arr = np.array(umap_data)
+        umap_df = pd.DataFrame({"x": umap_arr[:, 0], "y": umap_arr[:, 1]})
+        fig = px.scatter(
+            umap_df,
+            x="x",
+            y="y",
+            title="Embedding Space (UMAP)",
+            opacity=0.5,
+        )
+        fig.update_layout(template="plotly_white")
+        st.plotly_chart(fig, use_container_width=True)
+    else:
+        # Fallback: bar chart of cluster sizes
+        regions = profile_obj.coverage.dense_regions + profile_obj.coverage.sparse_regions
+        if regions:
+            cluster_df = pd.DataFrame(
+                [
+                    {
+                        "Cluster": f"C{i}",
+                        "Size": r.get("size", r.get("density", 0)),
+                        "Type": "Dense" if r in profile_obj.coverage.dense_regions else "Sparse",
+                    }
+                    for i, r in enumerate(regions)
+                ]
+            )
+            fig = px.bar(
+                cluster_df,
+                x="Cluster",
+                y="Size",
+                color="Type",
+                color_discrete_map={"Dense": "#3498db", "Sparse": "#e74c3c"},
+                title="Cluster Sizes",
+            )
+            fig.update_layout(template="plotly_white")
+            st.plotly_chart(fig, use_container_width=True)
+        else:
+            st.info("No coverage data available.")
+
+    # ------------------------------------------------------------------
+    # Section 4: Capability Table
+    # ------------------------------------------------------------------
+    st.subheader("Capability Scores")
+    cap_bars = data.get("capability_bars", [])
+    if cap_bars:
+        cap_df = pd.DataFrame(cap_bars)
+        cap_df["verdict"] = cap_df["score"].apply(_verdict)
+
+        # Bar chart
+        fig = px.bar(
+            cap_df,
+            x="task",
+            y="score",
+            color="score",
+            color_continuous_scale=["#e74c3c", "#f39c12", "#2ecc71"],
+            range_color=[0, 1],
+            title="Task Capability Scores",
+        )
+        fig.update_layout(template="plotly_white", xaxis_title="Task", yaxis_title="Score")
+        st.plotly_chart(fig, use_container_width=True)
+
+        # Table
+        st.dataframe(
+            cap_df[["task", "score", "confidence", "verdict"]].rename(
+                columns={
+                    "task": "Task",
+                    "score": "Score",
+                    "confidence": "Confidence",
+                    "verdict": "Verdict",
+                }
+            ),
+            use_container_width=True,
+            hide_index=True,
+        )
+
+        # Expandable details
+        for cap in profile_obj.capabilities:
+            with st.expander(f"{cap.task_description} — {_verdict(cap.score)}"):
+                st.write(f"**Score:** {cap.score:.3f} | **Confidence:** {cap.confidence:.3f}")
+                st.write(f"**Supporting episodes:** {cap.supporting_episodes}")
+                if cap.gap_description:
+                    st.write(f"**Gap:** {cap.gap_description}")
+    else:
+        st.info("No tasks scored. Provide task descriptions to see capability scores.")
+
+    # ------------------------------------------------------------------
+    # Section 5: Quality Distribution
+    # ------------------------------------------------------------------
+    st.subheader("Quality Distribution")
+    qual_data = data.get("quality_histogram", {})
+    scores = qual_data.get("scores", [])
+    if scores:
+        fig = px.histogram(
+            x=scores,
+            nbins=20,
+            labels={"x": "Quality Score", "y": "Count"},
+            title="Per-Episode Quality Scores",
+        )
+        fig.add_vline(
+            x=qual_data["mean"],
+            line_dash="dash",
+            line_color="green",
+            annotation_text=f"Mean: {qual_data['mean']:.3f}",
+        )
+        fig.update_layout(template="plotly_white")
+        st.plotly_chart(fig, use_container_width=True)
+
+        qc1, qc2 = st.columns(2)
+        qc1.metric("Mean Quality", f"{qual_data['mean']:.3f}")
+        qc2.metric("Std Dev", f"{qual_data['std']:.3f}")
+
+        low_q = profile_obj.quality.low_quality_episodes
+        if low_q:
+            st.warning(
+                f"**{len(low_q)} low-quality episodes detected:** {low_q}\n\n"
+                "These episodes may hurt policy performance. "
+                "Consider removing or re-collecting."
+            )
+    else:
+        st.info("No quality scores available.")
+
+    # ------------------------------------------------------------------
+    # Section 6: Prescriptions
+    # ------------------------------------------------------------------
+    st.subheader("Prescriptions")
+    prescriptions = data.get("prescription_table", [])
+    if prescriptions:
+        rx_df = pd.DataFrame(prescriptions)
+        display_cols = [
+            c
+            for c in [
+                "priority",
+                "task",
+                "instruction",
+                "estimated_demos",
+                "current_capability",
+                "target_capability",
+            ]
+            if c in rx_df.columns
+        ]
+        st.dataframe(rx_df[display_cols], use_container_width=True, hide_index=True)
+
+        # Export buttons
+        ec1, ec2, ec3 = st.columns(3)
+        ec1.download_button(
+            "Download JSON",
+            data=json.dumps(prescriptions, indent=2),
+            file_name="profiler_prescriptions.json",
+            mime="application/json",
+        )
+
+        csv_buf = io.StringIO()
+        if display_cols:
+            writer = csv.DictWriter(csv_buf, fieldnames=display_cols)
+            writer.writeheader()
+            for p in prescriptions:
+                writer.writerow({k: p.get(k, "") for k in display_cols})
+        ec2.download_button(
+            "Download CSV",
+            data=csv_buf.getvalue(),
+            file_name="profiler_prescriptions.csv",
+            mime="text/csv",
+        )
+
+        md_lines = ["# Dataset Profiler — Prescriptions\n"]
+        for p in prescriptions:
+            md_lines.append(f"## [{p.get('priority', '?')}] {p.get('task', 'N/A')}")
+            md_lines.append(p.get("instruction", "") + "\n")
+        ec3.download_button(
+            "Download Markdown",
+            data="\n".join(md_lines),
+            file_name="profiler_prescriptions.md",
+            mime="text/markdown",
+        )
+    else:
+        st.success("No prescriptions — dataset looks good!")
+
+    # ------------------------------------------------------------------
+    # Section 7: Comparison Mode
+    # ------------------------------------------------------------------
+    if "profiler_profile_b" in st.session_state:
+        st.subheader("Dataset Comparison")
+        profile_b = st.session_state["profiler_profile_b"]
+        data_b = st.session_state["profiler_dashboard_data_b"]
+
+        try:
+            from orbit.profile.capability import CapabilityScorer
+
+            scorer = CapabilityScorer()
+            comp = scorer.compare_profiles(profile_obj, profile_b)
+        except Exception as e:
+            st.error(f"Comparison failed: {e}")
+            return
+
+        cc1, cc2, cc3 = st.columns(3)
+        cc1.metric("Overlap Score", f"{comp['overlap']:.3f}")
+        cc2.metric("Combined Coverage", f"{comp['combined_coverage']:.3f}")
+        cc3.metric(
+            "Unique Tasks",
+            f"A: {len(comp['unique_to_a'])} | B: {len(comp['unique_to_b'])}",
+        )
+
+        # Side-by-side stats
+        stats_b = data_b["summary_stats"]
+        side1, side2 = st.columns(2)
+        with side1:
+            st.markdown("**Dataset A**")
+            st.write(f"Episodes: {stats['num_episodes']} | Frames: {stats['num_frames']}")
+            st.write(f"Coverage: {stats['overall_coverage']:.3f}")
+        with side2:
+            st.markdown("**Dataset B**")
+            st.write(f"Episodes: {stats_b['num_episodes']} | Frames: {stats_b['num_frames']}")
+            st.write(f"Coverage: {stats_b['overall_coverage']:.3f}")
+
+        if comp["unique_to_a"]:
+            st.write(f"**A is strong where B is weak:** {', '.join(comp['unique_to_a'])}")
+        if comp["unique_to_b"]:
+            st.write(f"**B is strong where A is weak:** {', '.join(comp['unique_to_b'])}")
+
+
+# ═══════════════════════════════════════════════════════════════════════════
 # PAGE 5: Settings
 # ═══════════════════════════════════════════════════════════════════════════
 
@@ -750,6 +1128,7 @@ def _run_app() -> None:
         st.Page(page_distribution_view, title="Distribution View"),
         st.Page(page_failure_analysis, title="Failure Analysis"),
         st.Page(page_prescriptions, title="Prescriptions"),
+        st.Page(page_dataset_profiler, title="Dataset Profiler"),
         st.Page(page_settings, title="Settings"),
     ]
     nav = st.navigation(pages)

@@ -49,7 +49,8 @@ def _make_synthetic_embeddings(
         center = rng.standard_normal(dim).astype(np.float32)
     embs = center + rng.standard_normal((n, dim)).astype(np.float32) * std
     norms = np.linalg.norm(embs, axis=1, keepdims=True)
-    return (embs / np.maximum(norms, 1e-8)).astype(np.float32)
+    normalized = (embs / np.maximum(norms, 1e-8)).astype(np.float32)
+    return np.ascontiguousarray(normalized)
 
 
 def _make_episode_with_images(

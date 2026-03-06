@@ -1,5 +1,11 @@
 """Shared pytest fixtures for Orbit tests."""
 
+import os
+
+# Prevent FAISS segfault on macOS when torch is imported first:
+# both ship competing OpenMP runtimes that crash during threaded search.
+os.environ.setdefault("OMP_NUM_THREADS", "1")
+
 import numpy as np
 import pytest
 from PIL import Image

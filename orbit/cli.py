@@ -73,5 +73,116 @@ def detect(session: str, config_path: str | None, json_output: bool, verbose: bo
     detect_main(args, standalone_mode=False)
 
 
+@cli.command()
+@click.option(
+    "--data-dir",
+    type=click.Path(),
+    default=None,
+    help="Local dataset directory to profile.",
+)
+@click.option("--hub-repo", default=None, help="HuggingFace Hub repo ID (e.g. lerobot/aloha_sim).")
+@click.option("--tasks", multiple=True, help="Task descriptions (repeat for multiple).")
+@click.option("--output", "-o", type=click.Path(), default=None, help="Output file path.")
+@click.option(
+    "--format",
+    "fmt",
+    type=click.Choice(["markdown", "json"]),
+    default="markdown",
+    help="Report format.",
+)
+def profile(
+    data_dir: str | None,
+    hub_repo: str | None,
+    tasks: tuple[str, ...],
+    output: str | None,
+    fmt: str,
+) -> None:
+    """Profile a robot dataset for task capabilities and coverage gaps."""
+    if not data_dir and not hub_repo:
+        raise click.UsageError("Provide either --data-dir or --hub-repo.")
+    if data_dir and hub_repo:
+        raise click.UsageError("Provide only one of --data-dir or --hub-repo, not both.")
+
+    from orbit.profile.profiler import DatasetProfiler
+    from orbit.profile.report import ProfileReporter
+
+    profiler = DatasetProfiler()
+    task_list = list(tasks) if tasks else None
+
+    if data_dir:
+        click.echo(f"Profiling local dataset: {data_dir}")
+        result = profiler.profile(data_dir, task_descriptions=task_list)
+    else:
+        click.echo(f"Profiling HuggingFace dataset: {hub_repo}")
+        result = profiler.profile_from_hub(hub_repo, task_descriptions=task_list)
+
+    reporter = ProfileReporter()
+    report = reporter.generate_report(result, format=fmt)
+
+    if output:
+        Path(output).write_text(report if isinstance(report, str) else str(report))
+        click.echo(f"Report saved to {output}")
+    else:
+        click.echo(report if isinstance(report, str) else str(report))
+
+
+@cli.command(name="profile-compare")
+@click.option(
+    "--dataset-a",
+    required=True,
+    type=click.Path(exists=True),
+    help="Path to first dataset.",
+)
+@click.option(
+    "--dataset-b",
+    required=True,
+    type=click.Path(exists=True),
+    help="Path to second dataset.",
+)
+@click.option("--tasks", multiple=True, help="Task descriptions (repeat for multiple).")
+@click.option("--output", "-o", type=click.Path(), default=None, help="Output file path.")
+def profile_compare(
+    dataset_a: str,
+    dataset_b: str,
+    tasks: tuple[str, ...],
+    output: str | None,
+) -> None:
+    """Compare two dataset profiles side-by-side."""
+    from orbit.profile.capability import CapabilityScorer
+    from orbit.profile.profiler import DatasetProfiler
+    from orbit.profile.report import ProfileReporter
+
+    profiler = DatasetProfiler()
+    reporter = ProfileReporter()
+    task_list = list(tasks) if tasks else None
+
+    click.echo(f"Profiling dataset A: {dataset_a}")
+    profile_a = profiler.profile(dataset_a, task_descriptions=task_list)
+
+    click.echo(f"Profiling dataset B: {dataset_b}")
+    profile_b = profiler.profile(dataset_b, task_descriptions=task_list)
+
+    scorer = CapabilityScorer()
+    comparison = scorer.compare_profiles(profile_a, profile_b)
+
+    report_a = reporter.generate_report(profile_a, format="dict")
+    report_b = reporter.generate_report(profile_b, format="dict")
+
+    import json
+
+    combined = {
+        "dataset_a": report_a,
+        "dataset_b": report_b,
+        "comparison": comparison,
+    }
+    result_str = json.dumps(combined, indent=2, default=str)
+
+    if output:
+        Path(output).write_text(result_str)
+        click.echo(f"Comparison saved to {output}")
+    else:
+        click.echo(result_str)
+
+
 if __name__ == "__main__":
     cli()

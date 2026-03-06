@@ -12,7 +12,6 @@ import logging
 from pathlib import Path
 from uuid import UUID
 
-import faiss
 import numpy as np
 from PIL import Image
 from tqdm import tqdm
@@ -46,7 +45,7 @@ class EmbeddingAnalyzer:
         self.config = config or EmbeddingAnalyzerConfig()
         self._model = None
         self._processor = None
-        self._faiss_index: faiss.IndexFlatIP | None = None
+        self._faiss_index = None  # faiss.IndexFlatIP, lazily imported
         self._training_embeddings: np.ndarray | None = None
         self._umap_reducer = None
 
@@ -102,6 +101,8 @@ class EmbeddingAnalyzer:
             }
             with torch.no_grad():
                 embs = self._model.get_image_features(**inputs)
+                if not isinstance(embs, torch.Tensor):
+                    embs = embs.pooler_output
             embs_np = embs.cpu().numpy()
             norms = np.linalg.norm(embs_np, axis=1, keepdims=True)
             embs_np = embs_np / np.maximum(norms, 1e-8)
@@ -226,6 +227,8 @@ class EmbeddingAnalyzer:
 
     def _build_faiss_index(self, embeddings: np.ndarray) -> None:
         """Build IndexFlatIP (cosine similarity via dot product on normalized vectors)."""
+        import faiss
+
         dim = embeddings.shape[1]
         index = faiss.IndexFlatIP(dim)
 
@@ -237,7 +240,7 @@ class EmbeddingAnalyzer:
             except Exception:
                 logger.warning("GPU FAISS not available, falling back to CPU")
 
-        index.add(embeddings.astype(np.float32))
+        index.add(np.ascontiguousarray(embeddings, dtype=np.float32))
         self._faiss_index = index
 
     # ------------------------------------------------------------------

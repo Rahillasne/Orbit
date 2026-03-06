@@ -1,6 +1,6 @@
 """Orbit: Robotics/ML debugging toolkit."""
 
-__version__ = "1.0.0"
+__version__ = "1.1.0"
 
 
 def __getattr__(name: str):
@@ -15,6 +15,7 @@ def __getattr__(name: str):
         "EmbeddingAnalyzer": "orbit.analyzer.embedding_analyzer",
         "Prescriber": "orbit.prescriber.prescriber",
         "FailureDescriber": "orbit.vlm.failure_describer",
+        "DatasetProfiler": "orbit.profile.profiler",
     }
     if name in _imports:
         import importlib
@@ -32,4 +33,5 @@ __all__ = [
     "EmbeddingAnalyzer",
     "Prescriber",
     "FailureDescriber",
+    "DatasetProfiler",
 ]
