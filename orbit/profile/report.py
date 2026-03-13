@@ -92,23 +92,38 @@ class ProfileReporter:
         capabilities = []
         for cap in profile.capabilities:
             verdict = self._verdict(cap.score)
-            capabilities.append(
-                {
-                    "task": cap.task_description,
-                    "score": round(cap.score, 3),
-                    "confidence": round(cap.confidence, 3),
-                    "supporting_episodes": cap.supporting_episodes,
-                    "verdict": verdict,
-                    "gap_description": cap.gap_description,
+            entry: dict = {
+                "task": cap.task_description,
+                "score": round(cap.score, 3),
+                "confidence": round(cap.confidence, 3),
+                "supporting_episodes": cap.supporting_episodes,
+                "verdict": verdict,
+                "gap_description": cap.gap_description,
+            }
+            if cap.score_breakdown:
+                entry["score_breakdown"] = {
+                    "visual_relevance": round(cap.score_breakdown.visual_relevance, 3),
+                    "data_quality": round(cap.score_breakdown.data_quality, 3),
+                    "coverage_diversity": round(cap.score_breakdown.coverage_diversity, 3),
+                    "volume": round(cap.score_breakdown.volume, 3),
                 }
-            )
+            capabilities.append(entry)
 
-        quality_data = {
+        quality_data: dict = {
             "aggregate_score": round(profile.quality.aggregate_score, 3),
             "mutual_information": round(profile.quality.mutual_information_estimate, 3),
             "low_quality_episodes": profile.quality.low_quality_episodes,
             "num_episodes_scored": len(profile.quality.episode_scores),
         }
+        if profile.quality.signal_breakdown:
+            sb = profile.quality.signal_breakdown
+            quality_data["signal_breakdown"] = {
+                "mutual_information": round(sb.mutual_information, 3),
+                "action_smoothness": round(sb.action_smoothness, 3),
+                "episode_completion": round(sb.episode_completion, 3),
+                "observation_consistency": round(sb.observation_consistency, 3),
+                "demonstration_quality": round(sb.demonstration_quality, 3),
+            }
 
         # Top strengths and gaps
         sorted_caps = sorted(profile.capabilities, key=lambda c: c.score, reverse=True)
@@ -173,6 +188,27 @@ class ProfileReporter:
                     f"{cap['confidence']:.3f} | {cap['supporting_episodes']} | "
                     f"{cap['verdict']} |"
                 )
+            lines.append("")
+
+            # Score component breakdown
+            has_breakdown = any("score_breakdown" in c for c in data["capabilities"])
+            if has_breakdown:
+                lines.append("### Score Component Breakdown")
+                lines.append("")
+                lines.append(
+                    "| Task | Visual Relevance | Data Quality "
+                    "| Coverage/Diversity | Volume |"
+                )
+                lines.append("|------|-----------------|-------------|-------------------|--------|")
+                for cap in data["capabilities"]:
+                    bd = cap.get("score_breakdown", {})
+                    lines.append(
+                        f"| {cap['task']} | {bd.get('visual_relevance', 0):.3f} | "
+                        f"{bd.get('data_quality', 0):.3f} | "
+                        f"{bd.get('coverage_diversity', 0):.3f} | "
+                        f"{bd.get('volume', 0):.3f} |"
+                    )
+                lines.append("")
         else:
             lines.append("No tasks scored.")
         lines.append("")
@@ -185,6 +221,20 @@ class ProfileReporter:
         if data["quality"]["low_quality_episodes"]:
             lines.append(f"- Low quality episodes: {data['quality']['low_quality_episodes']}")
         lines.append("")
+
+        # Quality signal breakdown
+        if "signal_breakdown" in data["quality"]:
+            sb = data["quality"]["signal_breakdown"]
+            lines.append("### Quality Signal Breakdown")
+            lines.append("")
+            lines.append("| Signal | Score |")
+            lines.append("|--------|-------|")
+            lines.append(f"| Mutual Information | {sb['mutual_information']:.3f} |")
+            lines.append(f"| Action Smoothness | {sb['action_smoothness']:.3f} |")
+            lines.append(f"| Episode Completion | {sb['episode_completion']:.3f} |")
+            lines.append(f"| Observation Consistency | {sb['observation_consistency']:.3f} |")
+            lines.append(f"| Demonstration Quality | {sb['demonstration_quality']:.3f} |")
+            lines.append("")
 
         # 5. Prescriptions
         lines.append("## Prescriptions")
@@ -211,6 +261,20 @@ class ProfileReporter:
         if score >= 0.2:
             return "Weak"
         return "No Coverage"
+
+    # ------------------------------------------------------------------
+    # Report card
+    # ------------------------------------------------------------------
+
+    def generate_report_card(self, profile: DatasetProfile):
+        """Generate a graded report card from the profile.
+
+        Returns a :class:`~orbit.profile.types.DatasetReportCard`.
+        """
+        from orbit.profile.report_card import ReportCardGenerator
+
+        generator = ReportCardGenerator()
+        return generator.generate(profile)
 
     # ------------------------------------------------------------------
     # Dashboard data
@@ -249,13 +313,35 @@ class ProfileReporter:
             "std": round(float(np.std(scores)) if scores else 0.0, 3),
         }
 
+        # Quality signal breakdown
+        quality_signal_breakdown = None
+        if profile.quality.signal_breakdown:
+            sb = profile.quality.signal_breakdown
+            quality_signal_breakdown = {
+                "mutual_information": round(sb.mutual_information, 3),
+                "action_smoothness": round(sb.action_smoothness, 3),
+                "episode_completion": round(sb.episode_completion, 3),
+                "observation_consistency": round(sb.observation_consistency, 3),
+                "demonstration_quality": round(sb.demonstration_quality, 3),
+            }
+
         # Prescription table
         prescription_table = profile.prescriptions
+
+        # Report card (optional, may fail gracefully)
+        report_card_data = None
+        try:
+            card = self.generate_report_card(profile)
+            report_card_data = card.to_dict()
+        except Exception:
+            logger.debug("Report card generation failed — skipping in dashboard data")
 
         return {
             "summary_stats": summary_stats,
             "coverage_umap": coverage_umap,
             "capability_bars": capability_bars,
             "quality_histogram": quality_histogram,
+            "quality_signal_breakdown": quality_signal_breakdown,
             "prescription_table": prescription_table,
+            "report_card": report_card_data,
         }

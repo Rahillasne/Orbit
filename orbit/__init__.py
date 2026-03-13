@@ -1,6 +1,6 @@
-"""Orbit: Robotics/ML debugging toolkit."""
+"""Orbit: Analyze robot datasets to predict task capability and prescribe data collection."""
 
-__version__ = "1.1.0"
+__version__ = "1.2.0"
 
 
 def __getattr__(name: str):
@@ -16,6 +16,9 @@ def __getattr__(name: str):
         "Prescriber": "orbit.prescriber.prescriber",
         "FailureDescriber": "orbit.vlm.failure_describer",
         "DatasetProfiler": "orbit.profile.profiler",
+        "Sim2RealProfiler": "orbit.sim2real_profiler",
+        "LeRobotAdapter": "orbit.adapters.lerobot_adapter",
+        "RobomimicAdapter": "orbit.adapters.robomimic_adapter",
     }
     if name in _imports:
         import importlib
@@ -34,4 +37,7 @@ __all__ = [
     "Prescriber",
     "FailureDescriber",
     "DatasetProfiler",
+    "Sim2RealProfiler",
+    "LeRobotAdapter",
+    "RobomimicAdapter",
 ]

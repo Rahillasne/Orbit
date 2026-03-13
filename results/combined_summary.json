@@ -1,0 +1,95 @@
+{
+  "orbit_version": "1.1.0",
+  "num_datasets": 4,
+  "embedding_model": "google/siglip-base-patch16-224",
+  "datasets": [
+    {
+      "dataset": "lerobot/pusht",
+      "num_episodes": 50,
+      "num_frames": 3131,
+      "coverage_score": 0.976,
+      "quality_score": 0.771,
+      "capabilities": [
+        {
+          "task": "push block to target",
+          "score": 0.531
+        },
+        {
+          "task": "precise positioning",
+          "score": 0.472
+        }
+      ],
+      "num_prescriptions": 1,
+      "profiling_time_s": 211.9
+    },
+    {
+      "dataset": "lerobot/aloha_sim_transfer_cube_human",
+      "num_episodes": 50,
+      "num_frames": 10000,
+      "coverage_score": 0.989,
+      "quality_score": 0.693,
+      "capabilities": [
+        {
+          "task": "pick up cube",
+          "score": 0.0
+        },
+        {
+          "task": "bimanual handover",
+          "score": 0.608
+        },
+        {
+          "task": "place cube",
+          "score": 0.024
+        }
+      ],
+      "num_prescriptions": 2,
+      "profiling_time_s": 1036.5
+    },
+    {
+      "dataset": "lerobot/xarm_lift_medium_replay",
+      "num_episodes": 50,
+      "num_frames": 650,
+      "coverage_score": 0.968,
+      "quality_score": 0.507,
+      "capabilities": [
+        {
+          "task": "grasp object",
+          "score": 0.638
+        },
+        {
+          "task": "lift object",
+          "score": 0.043
+        },
+        {
+          "task": "stable hold",
+          "score": 0.401
+        }
+      ],
+      "num_prescriptions": 2,
+      "profiling_time_s": 36.5
+    },
+    {
+      "dataset": "lerobot/aloha_sim_insertion_human",
+      "num_episodes": 50,
+      "num_frames": 12500,
+      "coverage_score": 0.993,
+      "quality_score": 0.766,
+      "capabilities": [
+        {
+          "task": "align peg",
+          "score": 0.195
+        },
+        {
+          "task": "insert peg",
+          "score": 0.084
+        },
+        {
+          "task": "precision manipulation",
+          "score": 0.497
+        }
+      ],
+      "num_prescriptions": 3,
+      "profiling_time_s": 930.7
+    }
+  ]
+}

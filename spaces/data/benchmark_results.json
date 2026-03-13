@@ -1,0 +1,223 @@
+{
+  "timestamp": "2026-03-09T20:47:00",
+  "synthetic": {
+    "status": "completed",
+    "data_points": [
+      {
+        "label": "high_capability_manipulation:pick up a cup from the table",
+        "scenario": "high_capability_manipulation",
+        "query": "pick up a cup from the table",
+        "predicted": 0.8313,
+        "ground_truth": 0.85,
+        "confidence": 1.0,
+        "gap_description": null
+      },
+      {
+        "label": "high_capability_manipulation:navigate through a hallway",
+        "scenario": "high_capability_manipulation",
+        "query": "navigate through a hallway",
+        "predicted": 0.0,
+        "ground_truth": 0.1,
+        "confidence": 1.0,
+        "gap_description": "Low visual similarity to task 'navigate through a hallway' \u2014 dataset may not contain relevant scenes."
+      },
+      {
+        "label": "medium_capability_manipulation:pick up a cup from the table",
+        "scenario": "medium_capability_manipulation",
+        "query": "pick up a cup from the table",
+        "predicted": 0.8515,
+        "ground_truth": 0.5,
+        "confidence": 1.0,
+        "gap_description": null
+      },
+      {
+        "label": "medium_capability_manipulation:navigate through a hallway",
+        "scenario": "medium_capability_manipulation",
+        "query": "navigate through a hallway",
+        "predicted": 0.0,
+        "ground_truth": 0.08,
+        "confidence": 1.0,
+        "gap_description": "Low visual similarity to task 'navigate through a hallway' \u2014 dataset may not contain relevant scenes."
+      },
+      {
+        "label": "low_capability_for_manipulation:pick up a cup from the table",
+        "scenario": "low_capability_for_manipulation",
+        "query": "pick up a cup from the table",
+        "predicted": 0.0,
+        "ground_truth": 0.1,
+        "confidence": 1.0,
+        "gap_description": "Low visual similarity to task 'pick up a cup from the table' \u2014 dataset may not contain relevant scenes."
+      },
+      {
+        "label": "low_capability_for_manipulation:navigate through a hallway",
+        "scenario": "low_capability_for_manipulation",
+        "query": "navigate through a hallway",
+        "predicted": 0.8703,
+        "ground_truth": 0.85,
+        "confidence": 1.0,
+        "gap_description": null
+      },
+      {
+        "label": "quality_degraded_manipulation:pick up a cup from the table",
+        "scenario": "quality_degraded_manipulation",
+        "query": "pick up a cup from the table",
+        "predicted": 0.8447,
+        "ground_truth": 0.3,
+        "confidence": 1.0,
+        "gap_description": null
+      },
+      {
+        "label": "quality_degraded_manipulation:navigate through a hallway",
+        "scenario": "quality_degraded_manipulation",
+        "query": "navigate through a hallway",
+        "predicted": 0.0,
+        "ground_truth": 0.05,
+        "confidence": 1.0,
+        "gap_description": "Low visual similarity to task 'navigate through a hallway' \u2014 dataset may not contain relevant scenes."
+      },
+      {
+        "label": "multi_task_manip_and_cooking:pick up a cup from the table",
+        "scenario": "multi_task_manip_and_cooking",
+        "query": "pick up a cup from the table",
+        "predicted": 0.3882,
+        "ground_truth": 0.7,
+        "confidence": 0.6,
+        "gap_description": "Matching episodes have low data quality \u2014 consider re-collecting demonstrations."
+      },
+      {
+        "label": "multi_task_manip_and_cooking:stir the pot while cooking",
+        "scenario": "multi_task_manip_and_cooking",
+        "query": "stir the pot while cooking",
+        "predicted": 0.3457,
+        "ground_truth": 0.55,
+        "confidence": 0.9,
+        "gap_description": "Low visual similarity to task 'stir the pot while cooking' \u2014 dataset may not contain relevant scenes."
+      },
+      {
+        "label": "multi_task_manip_and_cooking:navigate through a hallway",
+        "scenario": "multi_task_manip_and_cooking",
+        "query": "navigate through a hallway",
+        "predicted": 0.0,
+        "ground_truth": 0.05,
+        "confidence": 0.9,
+        "gap_description": "Low visual similarity to task 'navigate through a hallway' \u2014 dataset may not contain relevant scenes."
+      },
+      {
+        "label": "high_capability_navigation:navigate through a hallway",
+        "scenario": "high_capability_navigation",
+        "query": "navigate through a hallway",
+        "predicted": 0.9002,
+        "ground_truth": 0.85,
+        "confidence": 1.0,
+        "gap_description": null
+      },
+      {
+        "label": "high_capability_navigation:pick up a cup from the table",
+        "scenario": "high_capability_navigation",
+        "query": "pick up a cup from the table",
+        "predicted": 0.0,
+        "ground_truth": 0.1,
+        "confidence": 1.0,
+        "gap_description": "Low visual similarity to task 'pick up a cup from the table' \u2014 dataset may not contain relevant scenes."
+      }
+    ],
+    "scenarios": [
+      {
+        "name": "high_capability_manipulation",
+        "description": "Dense, high-quality manipulation data"
+      },
+      {
+        "name": "medium_capability_manipulation",
+        "description": "Sparse, noisy manipulation data"
+      },
+      {
+        "name": "low_capability_for_manipulation",
+        "description": "Navigation data tested for manipulation task"
+      },
+      {
+        "name": "quality_degraded_manipulation",
+        "description": "Good visual coverage but random actions"
+      },
+      {
+        "name": "multi_task_manip_and_cooking",
+        "description": "Mixed manipulation + cooking data"
+      },
+      {
+        "name": "high_capability_navigation",
+        "description": "Dense, high-quality navigation data"
+      }
+    ],
+    "correlations": {
+      "pearson_r": 0.8375,
+      "pearson_p": 0.000353,
+      "spearman_rho": 0.8515,
+      "spearman_p": 0.000221
+    },
+    "rank_accuracy": 0.8169,
+    "pass": true
+  },
+  "real_data": {
+    "status": "completed",
+    "data_points": [
+      {
+        "label": "pusht_diffusion",
+        "dataset": "lerobot/pusht",
+        "query": "push block to target",
+        "policy": "Diffusion Policy",
+        "source": "Chi et al. RSS 2023",
+        "predicted": 0.3007,
+        "ground_truth": 0.91,
+        "confidence": 0.8
+      },
+      {
+        "label": "aloha_transfer_cube",
+        "dataset": "lerobot/aloha_sim_transfer_cube_human",
+        "query": "bimanual handover",
+        "policy": "ACT",
+        "source": "Zhao et al. RSS 2023",
+        "predicted": 0.0305,
+        "ground_truth": 0.82,
+        "confidence": 0.8
+      },
+      {
+        "label": "aloha_insertion",
+        "dataset": "lerobot/aloha_sim_insertion_human",
+        "query": "insert peg",
+        "policy": "ACT",
+        "source": "Zhao et al. RSS 2023",
+        "predicted": 0.6062,
+        "ground_truth": 0.86,
+        "confidence": 0.8
+      },
+      {
+        "label": "xarm_lift_medium",
+        "dataset": "lerobot/xarm_lift_medium_replay",
+        "query": "grasp and lift object",
+        "policy": "TD3+BC",
+        "source": "LeRobot benchmark",
+        "predicted": 0.0778,
+        "ground_truth": 0.65,
+        "confidence": 0.8
+      }
+    ],
+    "correlations": {
+      "spearman_rho": 0.60,
+      "spearman_p": 0.40,
+      "pearson_r": 0.54,
+      "pearson_p": 0.46
+    },
+    "rank_accuracy": 0.6667,
+    "failure_cases": [
+      {"id": "pusht_keypoints", "error": "No loadable images found - state-only dataset"},
+      {"id": "aloha_transfer_cube_scripted", "error": "Timed out during profiling"},
+      {"id": "aloha_insertion_scripted", "error": "Timed out during profiling"}
+    ]
+  },
+  "overall": {
+    "pearson_r": 0.54,
+    "pearson_p": 0.46,
+    "spearman_rho": 0.60,
+    "spearman_p": 0.40,
+    "n_datapoints": 4
+  }
+}

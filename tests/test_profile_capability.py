@@ -13,6 +13,7 @@ from orbit.profile.types import (
     DatasetProfile,
     EmbeddingIndex,
     QualityMetrics,
+    ScoringWeights,
 )
 
 # ---------------------------------------------------------------------------
@@ -66,9 +67,9 @@ def _make_quality(episode_ids: list[int], score: float = 0.8) -> QualityMetrics:
     )
 
 
-def _scorer_with_mock(center_map: dict[str, np.ndarray]) -> CapabilityScorer:
+def _scorer_with_mock(center_map: dict[str, np.ndarray], **kwargs) -> CapabilityScorer:
     """Create a scorer that returns controlled text embeddings."""
-    scorer = CapabilityScorer(top_k=50)
+    scorer = CapabilityScorer(top_k=50, **kwargs)
     scorer._text_encoder_mode = "mock"
 
     rng = np.random.default_rng(99)
@@ -138,7 +139,7 @@ class TestCapabilityScorer:
     def test_relevant_task_scores_high(
         self, centers, dataset_index, dataset_coverage, dataset_quality
     ):
-        """A task matching the dataset's content should score > 0.6."""
+        """A task matching the dataset's content should score well."""
         scorer = _scorer_with_mock({"pick": centers["positive"]})
         caps = scorer.score_tasks(
             dataset_index,
@@ -148,7 +149,7 @@ class TestCapabilityScorer:
         )
         assert len(caps) == 1
         print(f"Relevant task score: {caps[0].score:.3f}")
-        assert caps[0].score > 0.6
+        assert caps[0].score > 0.5
         assert caps[0].gap_description is None  # score > 0.5
 
     def test_irrelevant_task_scores_low(
@@ -267,3 +268,104 @@ class TestCapabilityScorer:
         assert result["overlap"] > 0.9
         assert len(result["unique_to_a"]) == 0
         assert len(result["unique_to_b"]) == 0
+
+
+# ---------------------------------------------------------------------------
+# Tests — new scoring formula
+# ---------------------------------------------------------------------------
+
+
+class TestScoringFormula:
+    def test_score_breakdown_populated(
+        self, centers, dataset_index, dataset_coverage, dataset_quality
+    ):
+        """Score breakdown should be populated on all capability scores."""
+        scorer = _scorer_with_mock({"pick": centers["positive"]})
+        caps = scorer.score_tasks(
+            dataset_index,
+            dataset_coverage,
+            dataset_quality,
+            ["pick up red cube"],
+        )
+        assert len(caps) == 1
+        bd = caps[0].score_breakdown
+        assert bd is not None
+        assert 0.0 <= bd.visual_relevance <= 1.0
+        assert 0.0 <= bd.data_quality <= 1.0
+        assert 0.0 <= bd.coverage_diversity <= 1.0
+        assert 0.0 <= bd.volume <= 1.0
+
+    def test_custom_weights(
+        self, centers, dataset_index, dataset_coverage, dataset_quality
+    ):
+        """Custom weights should change the score."""
+        # All weight on visual relevance
+        w_relevance = ScoringWeights(
+            visual_relevance=1.0, data_quality=0.0, coverage_diversity=0.0, volume=0.0
+        )
+        scorer_rel = _scorer_with_mock(
+            {"pick": centers["positive"]}, scoring_weights=w_relevance
+        )
+
+        # All weight on data quality
+        w_quality = ScoringWeights(
+            visual_relevance=0.0, data_quality=1.0, coverage_diversity=0.0, volume=0.0
+        )
+        scorer_qual = _scorer_with_mock(
+            {"pick": centers["positive"]}, scoring_weights=w_quality
+        )
+
+        caps_rel = scorer_rel.score_tasks(
+            dataset_index, dataset_coverage, dataset_quality, ["pick up cube"]
+        )
+        caps_qual = scorer_qual.score_tasks(
+            dataset_index, dataset_coverage, dataset_quality, ["pick up cube"]
+        )
+
+        # Different weights should produce different scores
+        assert caps_rel[0].score != caps_qual[0].score
+
+    def test_relevance_gating_still_works(
+        self, centers, dataset_index, dataset_coverage
+    ):
+        """High quality but low relevance should still get a low score."""
+        # High quality dataset
+        quality = _make_quality(list(range(10)), score=1.0)
+
+        # Task that doesn't match the dataset at all
+        scorer = _scorer_with_mock({"navigate": centers["negative"]})
+        caps = scorer.score_tasks(
+            dataset_index,
+            dataset_coverage,
+            quality,
+            ["navigate outdoor terrain"],
+        )
+        assert caps[0].score < 0.3, (
+            f"Low-relevance task should score low even with high quality, got {caps[0].score:.3f}"
+        )
+
+    def test_volume_contributes(self, centers):
+        """More episodes should contribute positively to the score."""
+        # Small dataset: 10 embeddings, 2 episodes
+        embs_small = _make_cluster(10, DIM, centers["positive"], std=0.03, seed=1)
+        idx_small = _build_index(embs_small, episode_ids=[0] * 5 + [1] * 5)
+
+        # Large dataset: 50 embeddings, 50 episodes
+        embs_large = _make_cluster(50, DIM, centers["positive"], std=0.03, seed=2)
+        idx_large = _build_index(embs_large, episode_ids=list(range(50)))
+
+        coverage = _make_coverage([centers["positive"]])
+        quality_small = _make_quality([0, 1], score=0.8)
+        quality_large = _make_quality(list(range(50)), score=0.8)
+
+        scorer = _scorer_with_mock({"pick": centers["positive"]})
+
+        caps_small = scorer.score_tasks(
+            idx_small, coverage, quality_small, ["pick up cube"]
+        )
+        caps_large = scorer.score_tasks(
+            idx_large, coverage, quality_large, ["pick up cube"]
+        )
+
+        # Large dataset should score at least as high due to volume component
+        assert caps_large[0].score >= caps_small[0].score

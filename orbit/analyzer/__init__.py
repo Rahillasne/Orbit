@@ -1,4 +1,4 @@
-"""Orbit analyzer module.
+"""Orbit analyzer module — embedding-based distribution gap analysis.
 
 Backward-compatible: ``EmbeddingGapAnalyzer``, ``AnalyzerConfig``, and
 ``GapAnalysisResult`` still work.  New code should use

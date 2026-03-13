@@ -1,0 +1,65 @@
+{
+  "overall_transfer_score": 0.3859,
+  "per_task_scores": {
+    "bimanual manipulation": {
+      "score": 0.4764,
+      "embedding_overlap": 0.0,
+      "visual_gap": 0.0,
+      "action_similarity": 0.7674,
+      "diversity": 0.9889,
+      "sim_capability": 0.6145
+    },
+    "object transfer": {
+      "score": 0.2953,
+      "embedding_overlap": 0.0,
+      "visual_gap": 0.0,
+      "action_similarity": 0.7674,
+      "diversity": 0.9889,
+      "sim_capability": 0.0006
+    }
+  },
+  "gap_analysis": {
+    "biggest_gaps": [
+      {
+        "dimension": "embedding_overlap",
+        "score": 0.0
+      }
+    ],
+    "domain_shift_summary": "Overall domain shift is low. Embedding overlap is 0%.",
+    "worst_tasks": [
+      {
+        "task": "object transfer",
+        "score": 0.2953
+      },
+      {
+        "task": "bimanual manipulation",
+        "score": 0.4764
+      }
+    ],
+    "recommendations": [
+      "Collect more real-world data in environments that match sim scenarios to increase embedding overlap."
+    ]
+  },
+  "prescription": [
+    {
+      "task": "object transfer",
+      "action": "Collect real demonstrations in visually similar setups to bridge the embedding gap.",
+      "estimated_demos": 35,
+      "current_score": 0.2953,
+      "target_score": 0.5953,
+      "weakest_dimension": "embedding_overlap",
+      "rationale": "Weakest dimension is embedding_overlap (0.00). Closing this gap would most improve transfer readiness.",
+      "priority": 1
+    },
+    {
+      "task": "bimanual manipulation",
+      "action": "Collect real demonstrations in visually similar setups to bridge the embedding gap.",
+      "estimated_demos": 26,
+      "current_score": 0.4764,
+      "target_score": 0.7764,
+      "weakest_dimension": "embedding_overlap",
+      "rationale": "Weakest dimension is embedding_overlap (0.00). Closing this gap would most improve transfer readiness.",
+      "priority": 2
+    }
+  ]
+}

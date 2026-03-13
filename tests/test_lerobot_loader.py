@@ -211,6 +211,71 @@ class TestWriteHDF5:
             assert "actions" in grp
             assert "image_paths" not in grp
 
+    def test_writes_with_embedded_image_arrays(self, tmp_path: Path):
+        """Image arrays are stored as (N, H, W, 3) uint8 in HDF5."""
+        episodes = [
+            {
+                "episode_id": 0,
+                "states": np.ones((5, 4), dtype=np.float32),
+                "actions": np.zeros((5, 4), dtype=np.float32),
+            },
+        ]
+        rng = np.random.default_rng(42)
+        arrays = {0: [rng.integers(0, 255, (64, 64, 3), dtype=np.uint8) for _ in range(5)]}
+
+        DatasetLoader._write_hdf5(tmp_path, episodes, {}, image_arrays=arrays)
+
+        h5_path = tmp_path / "session_lerobot.h5"
+        with h5py.File(h5_path, "r") as f:
+            grp = f["episodes"]["0"]
+            assert "images" in grp
+            imgs = grp["images"][:]
+            assert imgs.shape == (5, 64, 64, 3)
+            assert imgs.dtype == np.uint8
+            np.testing.assert_array_equal(imgs[0], arrays[0][0])
+
+    def test_backward_compat_no_image_arrays(self, tmp_path: Path):
+        """_write_hdf5 works when image_arrays=None (old call signature)."""
+        episodes = [
+            {
+                "episode_id": 0,
+                "states": np.ones((3, 4), dtype=np.float32),
+                "actions": np.zeros((3, 4), dtype=np.float32),
+            },
+        ]
+        img_paths = {0: ["/a.png", "/b.png"]}
+
+        DatasetLoader._write_hdf5(tmp_path, episodes, img_paths)
+
+        h5_path = tmp_path / "session_lerobot.h5"
+        with h5py.File(h5_path, "r") as f:
+            grp = f["episodes"]["0"]
+            assert "image_paths" in grp
+            assert "images" not in grp
+
+    def test_mixed_resolution_images_resized(self, tmp_path: Path):
+        """Images with different resolutions are resized to first image's size."""
+        episodes = [
+            {
+                "episode_id": 0,
+                "states": np.ones((3, 4), dtype=np.float32),
+                "actions": np.zeros((3, 4), dtype=np.float32),
+            },
+        ]
+        arrays = {
+            0: [
+                np.zeros((64, 64, 3), dtype=np.uint8),
+                np.zeros((128, 128, 3), dtype=np.uint8),  # different size
+            ]
+        }
+
+        DatasetLoader._write_hdf5(tmp_path, episodes, {}, image_arrays=arrays)
+
+        h5_path = tmp_path / "session_lerobot.h5"
+        with h5py.File(h5_path, "r") as f:
+            imgs = f["episodes"]["0"]["images"][:]
+            assert imgs.shape == (2, 64, 64, 3)
+
 
 # ------------------------------------------------------------------
 # Tests: helpers
@@ -249,3 +314,23 @@ class TestHelpers:
             result = DatasetLoader._extract_specific_frames(fake_video, output, [0, 1, 2])
             # Result may be empty or have frames depending on ffmpeg availability
             assert isinstance(result, dict)
+
+    def test_find_all_videos_multi_chunk(self, tmp_path: Path):
+        """_find_all_videos returns all chunks for first camera, sorted."""
+        video_dir = tmp_path / "videos" / "observation.images.top"
+        for chunk in ("chunk-000", "chunk-001"):
+            d = video_dir / chunk
+            d.mkdir(parents=True)
+            (d / "file-000.mp4").write_bytes(b"fake")
+        # Second camera should be excluded
+        other = tmp_path / "videos" / "observation.images.wrist" / "chunk-000"
+        other.mkdir(parents=True)
+        (other / "file-000.mp4").write_bytes(b"fake")
+
+        result = DatasetLoader._find_all_videos(tmp_path)
+        assert len(result) == 2
+        assert all("observation.images.top" in str(v) for v in result)
+
+    def test_find_all_videos_empty(self, tmp_path: Path):
+        """_find_all_videos returns empty list when no videos dir exists."""
+        assert DatasetLoader._find_all_videos(tmp_path) == []

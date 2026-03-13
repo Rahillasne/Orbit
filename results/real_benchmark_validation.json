@@ -1,0 +1,83 @@
+{
+  "results": [
+    {
+      "id": "pusht_diffusion",
+      "repo_id": "lerobot/pusht",
+      "task": "push block to target",
+      "ground_truth": 0.91,
+      "orbit_score": 0.3007,
+      "policy": "Diffusion Policy",
+      "source": "Chi et al. RSS 2023",
+      "profiling_time_s": 77.4,
+      "residual": -0.6093,
+      "abs_error": 0.6093,
+      "orbit_confidence": 0.8
+    },
+    {
+      "id": "aloha_transfer_cube",
+      "repo_id": "lerobot/aloha_sim_transfer_cube_human",
+      "task": "bimanual handover",
+      "ground_truth": 0.82,
+      "orbit_score": 0.0305,
+      "policy": "ACT",
+      "source": "Zhao et al. RSS 2023",
+      "profiling_time_s": 1730.6,
+      "residual": -0.7895,
+      "abs_error": 0.7895,
+      "orbit_confidence": 0.8
+    },
+    {
+      "id": "aloha_insertion",
+      "repo_id": "lerobot/aloha_sim_insertion_human",
+      "task": "insert peg",
+      "ground_truth": 0.86,
+      "orbit_score": 0.6062,
+      "policy": "ACT",
+      "source": "Zhao et al. RSS 2023",
+      "profiling_time_s": 2861.5,
+      "residual": -0.2538,
+      "abs_error": 0.2538,
+      "orbit_confidence": 0.8
+    },
+    {
+      "id": "xarm_lift_medium",
+      "repo_id": "lerobot/xarm_lift_medium_replay",
+      "task": "grasp and lift object",
+      "ground_truth": 0.65,
+      "orbit_score": 0.0778,
+      "policy": "TD3+BC",
+      "source": "LeRobot benchmark",
+      "profiling_time_s": 65.1,
+      "residual": -0.5722,
+      "abs_error": 0.5722,
+      "orbit_confidence": 0.8
+    }
+  ],
+  "correlation": {
+    "spearman_rho": 0.6000000000000001,
+    "spearman_p": 0.4,
+    "pearson_r": 0.542161045036986,
+    "pearson_p": 0.45783895496301397,
+    "rank_accuracy": 0.6666666666666666,
+    "n_samples": 4
+  },
+  "failure_cases": [
+    {
+      "id": "pusht_keypoints",
+      "error": "No loadable images found - state-only dataset"
+    },
+    {
+      "id": "aloha_transfer_cube_scripted",
+      "error": "Timed out during profiling"
+    },
+    {
+      "id": "aloha_insertion_scripted",
+      "error": "Timed out during profiling"
+    }
+  ],
+  "metadata": {
+    "embedding_model": "google/siglip-base-patch16-224",
+    "device": "mps",
+    "total_time_s": 4734.6
+  }
+}

@@ -1,0 +1,99 @@
+{
+  "dataset_name": "lerobot_aloha_sim_transfer_cube_human",
+  "num_episodes": 50,
+  "num_frames": 10000,
+  "overall_coverage_score": 0.989,
+  "strengths": [
+    "bimanual handover"
+  ],
+  "gaps": [
+    "place cube",
+    "pick up cube"
+  ],
+  "capabilities": [
+    {
+      "task": "pick up cube",
+      "score": 0.0,
+      "confidence": 0.017,
+      "supporting_episodes": 17,
+      "verdict": "No Coverage",
+      "gap_description": "Low visual similarity to task 'pick up cube' \u2014 dataset may not contain relevant scenes.",
+      "score_breakdown": {
+        "visual_relevance": 0.001,
+        "data_quality": 0.71,
+        "coverage_diversity": 0.033,
+        "volume": 0.34
+      }
+    },
+    {
+      "task": "bimanual handover",
+      "score": 0.608,
+      "confidence": 0.011,
+      "supporting_episodes": 11,
+      "verdict": "Adequate",
+      "gap_description": null,
+      "score_breakdown": {
+        "visual_relevance": 0.96,
+        "data_quality": 0.7,
+        "coverage_diversity": 0.024,
+        "volume": 0.22
+      }
+    },
+    {
+      "task": "place cube",
+      "score": 0.024,
+      "confidence": 0.02,
+      "supporting_episodes": 20,
+      "verdict": "No Coverage",
+      "gap_description": "Low visual similarity to task 'place cube' \u2014 dataset may not contain relevant scenes.",
+      "score_breakdown": {
+        "visual_relevance": 0.039,
+        "data_quality": 0.7,
+        "coverage_diversity": 0.04,
+        "volume": 0.4
+      }
+    }
+  ],
+  "quality": {
+    "aggregate_score": 0.693,
+    "mutual_information": 6.577,
+    "low_quality_episodes": [
+      18,
+      42
+    ],
+    "num_episodes_scored": 50,
+    "signal_breakdown": {
+      "mutual_information": 0.541,
+      "action_smoothness": 0.997,
+      "episode_completion": 0.507,
+      "observation_consistency": 0.677,
+      "demonstration_quality": 0.689
+    }
+  },
+  "coverage": {
+    "num_dense_regions": 292,
+    "num_sparse_regions": 291,
+    "overall_score": 0.989
+  },
+  "prescriptions": [
+    {
+      "priority": 1,
+      "task": "pick up cube",
+      "instruction": "Collect 29 demonstrations of 'pick up cube'. Focus on: Low visual similarity to task 'pick up cube' \u2014 dataset may not contain relevant scenes.",
+      "estimated_demos": 29,
+      "gap_description": "Low visual similarity to task 'pick up cube' \u2014 dataset may not contain relevant scenes.",
+      "current_capability": 0.0,
+      "target_capability": 0.3
+    },
+    {
+      "priority": 2,
+      "task": "place cube",
+      "instruction": "Collect 29 demonstrations of 'place cube'. Focus on: Low visual similarity to task 'place cube' \u2014 dataset may not contain relevant scenes.",
+      "estimated_demos": 29,
+      "gap_description": "Low visual similarity to task 'place cube' \u2014 dataset may not contain relevant scenes.",
+      "current_capability": 0.024,
+      "target_capability": 0.324
+    }
+  ],
+  "timestamp": "2026-03-09T20:12:51.352938"
+}

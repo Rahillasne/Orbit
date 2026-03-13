@@ -13,6 +13,8 @@ from orbit.profile.types import (
     DatasetProfile,
     EmbeddingIndex,
     QualityMetrics,
+    ScoreBreakdown,
+    ScoringWeights,
 )
 
 logger = logging.getLogger(__name__)
@@ -23,7 +25,9 @@ class CapabilityScorer:
 
     Uses SigLIP's text encoder to match task descriptions against the
     visual embedding index, then combines relevance, coverage breadth,
-    and quality weighting into a single capability score.
+    quality, and volume into a single capability score.
+
+    Weights are configurable via ``scoring_weights``.
     """
 
     def __init__(
@@ -31,10 +35,14 @@ class CapabilityScorer:
         model_name: str = "google/siglip-base-patch16-224",
         device: str = "cpu",
         top_k: int = 50,
+        scoring_weights: ScoringWeights | None = None,
+        fast_mode: bool = False,
     ) -> None:
         self.model_name = model_name
         self.device = device
         self.top_k = top_k
+        self.scoring_weights = scoring_weights or ScoringWeights()
+        self.fast_mode = fast_mode
 
         self._text_encoder_mode: str | None = None
         self._model = None
@@ -45,6 +53,10 @@ class CapabilityScorer:
         self._tfidf_dim: int | None = None
         self._text_embedding_cache: dict[str, np.ndarray] = {}
 
+        # OpenCLIP (fast mode)
+        self._openclip_model = None
+        self._openclip_tokenizer = None
+
     # ------------------------------------------------------------------
     # Text encoding
     # ------------------------------------------------------------------
@@ -53,6 +65,23 @@ class CapabilityScorer:
         """Load a text encoder with graceful fallback."""
         if self._text_encoder_mode is not None:
             return
+
+        # Fast mode: try OpenCLIP ViT-B/32 first
+        if self.fast_mode:
+            try:
+                import open_clip
+
+                model, _, _ = open_clip.create_model_and_transforms(
+                    "ViT-B-32", pretrained="laion2b_s34b_b79k"
+                )
+                model.eval()
+                self._openclip_model = model
+                self._openclip_tokenizer = open_clip.get_tokenizer("ViT-B-32")
+                self._text_encoder_mode = "openclip"
+                logger.info("Using OpenCLIP ViT-B/32 text encoder (fast mode)")
+                return
+            except Exception:
+                logger.info("OpenCLIP unavailable, falling back to SigLIP")
 
         # Try SigLIP
         try:
@@ -100,7 +129,9 @@ class CapabilityScorer:
 
         self._load_text_encoder()
 
-        if self._text_encoder_mode == "siglip":
+        if self._text_encoder_mode == "openclip":
+            embs = self._encode_openclip([t for _, t in uncached])
+        elif self._text_encoder_mode == "siglip":
             embs = self._encode_siglip([t for _, t in uncached])
         elif self._text_encoder_mode == "sentence_transformers":
             embs = self._encode_st([t for _, t in uncached])
@@ -112,6 +143,16 @@ class CapabilityScorer:
             self._text_embedding_cache[t] = embs[idx : idx + 1]
 
         return np.vstack([self._text_embedding_cache[t] for t in texts])
+
+    def _encode_openclip(self, texts: list[str]) -> np.ndarray:
+        import torch
+
+        tokens = self._openclip_tokenizer(texts)
+        with torch.no_grad():
+            text_features = self._openclip_model.encode_text(tokens)
+        embs = text_features.cpu().numpy().astype(np.float32)
+        norms = np.linalg.norm(embs, axis=1, keepdims=True)
+        return (embs / np.maximum(norms, 1e-8)).astype(np.float32)
 
     def _encode_siglip(self, texts: list[str]) -> np.ndarray:
         import torch
@@ -160,8 +201,27 @@ class CapabilityScorer:
         quality: QualityMetrics,
         task_descriptions: list[str],
         task_reference_embeddings: dict[str, np.ndarray] | None = None,
+        relevance_index: EmbeddingIndex | None = None,
     ) -> list[CapabilityScore]:
-        """Score dataset capability for each target task."""
+        """Score dataset capability for each target task.
+
+        Parameters
+        ----------
+        embedding_index:
+            Primary embedding index (R3M or SigLIP) used for coverage breadth.
+        coverage:
+            Coverage analysis results.
+        quality:
+            Quality metrics for the dataset.
+        task_descriptions:
+            Task descriptions to score.
+        task_reference_embeddings:
+            Optional pre-computed text embeddings per task.
+        relevance_index:
+            Optional secondary index (SigLIP/OpenCLIP) for text-image
+            relevance scoring when the primary index uses a vision-only
+            model like R3M.  If ``None``, the primary index is used.
+        """
         if not task_descriptions:
             return []
 
@@ -180,7 +240,13 @@ class CapabilityScorer:
                 for desc in task_descriptions
             ]
 
-        # Encode all task descriptions at once
+        # Use the relevance index for text-image matching if provided,
+        # otherwise fall back to the primary embedding index
+        search_index = relevance_index if relevance_index is not None else embedding_index
+        search_k = min(self.top_k, search_index.num_embeddings)
+
+        # Encode all task descriptions at once — target dim matches search index
+        target_dim = search_index.dimension
         if task_reference_embeddings:
             text_embs = np.vstack(
                 [
@@ -189,6 +255,7 @@ class CapabilityScorer:
                 ]
             )
         else:
+            self._load_text_encoder(target_dim=target_dim)
             text_embs = self._encode_texts(task_descriptions)
 
         # Collect raw top-k similarities for all tasks to enable relative scoring
@@ -196,7 +263,7 @@ class CapabilityScorer:
         all_indices: list[np.ndarray] = []
         for i in range(len(task_descriptions)):
             query = text_embs[i : i + 1].astype(np.float32)
-            sims, indices = embedding_index.index.search(query, k)
+            sims, indices = search_index.index.search(query, search_k)
             all_sims.append(sims[0])
             all_indices.append(indices[0])
 
@@ -267,29 +334,45 @@ class CapabilityScorer:
         # 3. Quality weight
         quality_weight = self._compute_quality_weight(matched_episode_ids, quality)
 
-        # 4. Combine — gate coverage/quality by relevance so irrelevant
-        #    tasks don't get inflated scores from good data quality alone
-        score = float(
-            np.clip(
-                relevance * (0.4 + 0.3 * coverage_breadth + 0.3 * quality_weight),
-                0.0,
-                1.0,
-            )
+        # 4. Volume component
+        volume_score = float(np.clip(supporting_episodes / 50.0, 0.0, 1.0))
+
+        # 5. Weighted additive combination with relevance gate
+        w = self.scoring_weights
+        ungated = (
+            w.visual_relevance * relevance
+            + w.data_quality * quality_weight
+            + w.coverage_diversity * coverage_breadth
+            + w.volume * volume_score
         )
 
-        # 5. Confidence
+        # Relevance gate: suppresses score when relevance is very low
+        # At relevance >= 0.5: gate = 1.0 (fully open)
+        # At relevance = 0: gate = 0.0
+        gate = float(np.clip(relevance * 2.0, 0.0, 1.0))
+        score = float(np.clip(ungated * gate, 0.0, 1.0))
+
+        # 6. Score breakdown
+        breakdown = ScoreBreakdown(
+            visual_relevance=round(relevance, 4),
+            data_quality=round(quality_weight, 4),
+            coverage_diversity=round(coverage_breadth, 4),
+            volume=round(volume_score, 4),
+        )
+
+        # 7. Confidence
         denom = max(embedding_index.num_embeddings / 10.0, 1.0)
         confidence = float(np.clip(supporting_episodes / denom, 0.0, 1.0))
 
-        # 6. Diversity metrics
+        # 8. Diversity metrics
         action_diversity = self._compute_action_diversity(matched_episode_ids, embedding_index)
         env_diversity = float(np.std(sims)) if len(sims) > 1 else 0.0
 
-        # 7. Gap description
+        # 9. Gap description
         gap_description = None
         if score < 0.5:
             gap_description = self._generate_gap_description(
-                task_description, relevance, coverage_breadth, quality_weight
+                task_description, relevance, coverage_breadth, quality_weight, volume_score
             )
 
         return CapabilityScore(
@@ -300,6 +383,7 @@ class CapabilityScorer:
             action_diversity=action_diversity,
             environment_diversity=env_diversity,
             gap_description=gap_description,
+            score_breakdown=breakdown,
         )
 
     def _compute_coverage_breadth(
@@ -375,9 +459,10 @@ class CapabilityScorer:
         relevance: float,
         coverage_breadth: float,
         quality_weight: float,
+        volume_score: float = 0.0,
     ) -> str:
         """Generate a human-readable gap description."""
-        weakest = min(relevance, coverage_breadth, quality_weight)
+        weakest = min(relevance, coverage_breadth, quality_weight, volume_score)
         if weakest == relevance:
             return (
                 f"Low visual similarity to task '{task}' — dataset may not contain relevant scenes."
@@ -387,7 +472,81 @@ class CapabilityScorer:
                 "Relevant frames found but concentrated in few episodes — "
                 "collect more diverse demonstrations."
             )
+        if weakest == volume_score:
+            return "Too few supporting episodes — collect more demonstrations."
         return "Matching episodes have low data quality — consider re-collecting demonstrations."
+
+    # ------------------------------------------------------------------
+    # Learned weights (Phase 8)
+    # ------------------------------------------------------------------
+
+    @staticmethod
+    def learn_weights(
+        component_scores: np.ndarray,
+        success_rates: np.ndarray,
+    ) -> dict:
+        """Learn optimal scoring weights from ground truth data.
+
+        Parameters
+        ----------
+        component_scores:
+            (N, 4) array of [visual_relevance, data_quality,
+            coverage_diversity, volume] per dataset.
+        success_rates:
+            (N,) ground truth success rates.
+
+        Returns
+        -------
+        Dict with learned weights, R-squared, and recommendation.
+        If R-squared >= 0.3, learned weights are recommended.
+        Otherwise, the predictor should be used directly (Option B).
+        """
+        from scipy import stats
+        from sklearn.linear_model import LinearRegression
+
+        lr = LinearRegression()
+        lr.fit(component_scores, success_rates)
+        predictions = lr.predict(component_scores)
+
+        ss_res = np.sum((success_rates - predictions) ** 2)
+        ss_tot = np.sum((success_rates - np.mean(success_rates)) ** 2)
+        r_squared = float(1.0 - ss_res / max(ss_tot, 1e-10))
+
+        learned = {
+            "visual_relevance": float(lr.coef_[0]),
+            "data_quality": float(lr.coef_[1]),
+            "coverage_diversity": float(lr.coef_[2]),
+            "volume": float(lr.coef_[3]),
+        }
+        intercept = float(lr.intercept_)
+
+        rho, rho_p = stats.spearmanr(predictions, success_rates)
+
+        result = {
+            "learned_weights": learned,
+            "intercept": intercept,
+            "r_squared": r_squared,
+            "spearman_rho": float(rho),
+            "spearman_p": float(rho_p),
+            "n_samples": len(success_rates),
+        }
+
+        if r_squared >= 0.3:
+            result["recommendation"] = "option_a"
+            result["message"] = (
+                f"Learned weights achieve R²={r_squared:.3f}. "
+                f"Use these instead of hand-tuned weights."
+            )
+        else:
+            result["recommendation"] = "option_b"
+            result["message"] = (
+                f"Component scores achieve R²={r_squared:.3f} (< 0.3). "
+                f"The 4 component scores don't linearly predict success. "
+                f"Use the predictor as the PRIMARY output and demote the "
+                f"capability score to a human-readable summary."
+            )
+
+        return result
 
     # ------------------------------------------------------------------
     # Failure zone prediction

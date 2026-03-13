@@ -2,8 +2,10 @@
 
 from __future__ import annotations
 
+from pathlib import Path
 from unittest.mock import MagicMock, patch
 
+import h5py
 import numpy as np
 import pytest
 from PIL import Image
@@ -150,3 +152,94 @@ class TestEmbeddingExtractor:
         assert embeddings.shape == (1, 768)
         norm = np.linalg.norm(embeddings[0])
         assert np.isclose(norm, 1.0, atol=1e-5)
+
+
+class TestExtractFromHDF5:
+    """Tests for _extract_from_hdf5 with both new and legacy formats.
+
+    Uses a standalone extractor in fast_mode (fallback embeddings) to avoid
+    importing transformers, which may be broken in some environments.
+    """
+
+    @pytest.fixture
+    def fallback_extractor(self):
+        """EmbeddingExtractor that uses random projection (no model deps)."""
+        ext = EmbeddingExtractor(fast_mode=True, batch_size=8)
+        # Force fallback so we don't need openclip either
+        ext._use_fallback = True
+        ext.fast_mode = False
+        return ext
+
+    def test_embedded_images_format(self, fallback_extractor, tmp_path: Path):
+        """New format: images as numpy arrays embedded in HDF5."""
+        rng = np.random.default_rng(42)
+        h5_path = tmp_path / "session_test.h5"
+        with h5py.File(h5_path, "w") as f:
+            eps = f.create_group("episodes")
+            for eid in range(2):
+                grp = eps.create_group(str(eid))
+                grp.create_dataset("states", data=rng.random((5, 4)).astype(np.float32))
+                grp.create_dataset("actions", data=rng.random((5, 4)).astype(np.float32))
+                images = rng.integers(0, 255, (5, 64, 64, 3), dtype=np.uint8)
+                grp.create_dataset("images", data=images, dtype=np.uint8)
+
+        result = fallback_extractor._extract_from_hdf5([h5_path], sample_rate=1)
+        assert isinstance(result, EmbeddingIndex)
+        assert result.num_embeddings == 10  # 2 episodes x 5 frames
+        assert len(result.episode_ids) == 10
+
+    def test_embedded_images_with_sampling(self, fallback_extractor, tmp_path: Path):
+        """Sampling rate reduces number of images loaded."""
+        rng = np.random.default_rng(42)
+        h5_path = tmp_path / "session_test.h5"
+        with h5py.File(h5_path, "w") as f:
+            eps = f.create_group("episodes")
+            grp = eps.create_group("0")
+            grp.create_dataset("states", data=rng.random((10, 4)).astype(np.float32))
+            grp.create_dataset("actions", data=rng.random((10, 4)).astype(np.float32))
+            images = rng.integers(0, 255, (10, 64, 64, 3), dtype=np.uint8)
+            grp.create_dataset("images", data=images, dtype=np.uint8)
+
+        result = fallback_extractor._extract_from_hdf5([h5_path], sample_rate=3)
+        # Frames at indices 0, 3, 6, 9 → 4 images
+        assert result.num_embeddings == 4
+
+    def test_legacy_image_paths_format(self, fallback_extractor, tmp_path: Path):
+        """Legacy format: file paths in HDF5 still work."""
+        rng = np.random.default_rng(42)
+        img_dir = tmp_path / "images"
+        img_dir.mkdir()
+
+        h5_path = tmp_path / "session_test.h5"
+        paths = []
+        for i in range(3):
+            img = Image.fromarray(rng.integers(0, 255, (64, 64, 3), dtype=np.uint8))
+            p = img_dir / f"frame_{i}.png"
+            img.save(p)
+            paths.append(str(p))
+
+        with h5py.File(h5_path, "w") as f:
+            eps = f.create_group("episodes")
+            grp = eps.create_group("0")
+            grp.create_dataset("states", data=rng.random((3, 4)).astype(np.float32))
+            grp.create_dataset("actions", data=rng.random((3, 4)).astype(np.float32))
+            dt = h5py.string_dtype()
+            grp.create_dataset("image_paths", data=paths, dtype=dt)
+
+        result = fallback_extractor._extract_from_hdf5([h5_path], sample_rate=1)
+        assert result.num_embeddings == 3
+
+    def test_max_images_cap(self, fallback_extractor, tmp_path: Path):
+        """max_images parameter limits total images loaded."""
+        rng = np.random.default_rng(42)
+        h5_path = tmp_path / "session_test.h5"
+        with h5py.File(h5_path, "w") as f:
+            eps = f.create_group("episodes")
+            grp = eps.create_group("0")
+            grp.create_dataset("states", data=rng.random((20, 4)).astype(np.float32))
+            grp.create_dataset("actions", data=rng.random((20, 4)).astype(np.float32))
+            images = rng.integers(0, 255, (20, 32, 32, 3), dtype=np.uint8)
+            grp.create_dataset("images", data=images, dtype=np.uint8)
+
+        result = fallback_extractor._extract_from_hdf5([h5_path], sample_rate=1, max_images=5)
+        assert result.num_embeddings == 5

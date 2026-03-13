@@ -1,0 +1,96 @@
+{
+  "dataset_name": "lerobot_xarm_lift_medium_replay",
+  "num_episodes": 50,
+  "num_frames": 650,
+  "overall_coverage_score": 0.968,
+  "strengths": [
+    "grasp object"
+  ],
+  "gaps": [
+    "stable hold",
+    "lift object"
+  ],
+  "capabilities": [
+    {
+      "task": "grasp object",
+      "score": 0.638,
+      "confidence": 0.415,
+      "supporting_episodes": 27,
+      "verdict": "Adequate",
+      "gap_description": null,
+      "score_breakdown": {
+        "visual_relevance": 0.593,
+        "data_quality": 0.503,
+        "coverage_diversity": 1.0,
+        "volume": 0.54
+      }
+    },
+    {
+      "task": "lift object",
+      "score": 0.043,
+      "confidence": 0.338,
+      "supporting_episodes": 22,
+      "verdict": "No Coverage",
+      "gap_description": "Low visual similarity to task 'lift object' \u2014 dataset may not contain relevant scenes.",
+      "score_breakdown": {
+        "visual_relevance": 0.049,
+        "data_quality": 0.514,
+        "coverage_diversity": 1.0,
+        "volume": 0.44
+      }
+    },
+    {
+      "task": "stable hold",
+      "score": 0.401,
+      "confidence": 0.446,
+      "supporting_episodes": 29,
+      "verdict": "Weak",
+      "gap_description": "Low visual similarity to task 'stable hold' \u2014 dataset may not contain relevant scenes.",
+      "score_breakdown": {
+        "visual_relevance": 0.358,
+        "data_quality": 0.501,
+        "coverage_diversity": 1.0,
+        "volume": 0.58
+      }
+    }
+  ],
+  "quality": {
+    "aggregate_score": 0.507,
+    "mutual_information": 0.0,
+    "low_quality_episodes": [],
+    "num_episodes_scored": 50,
+    "signal_breakdown": {
+      "mutual_information": 0.5,
+      "action_smoothness": 0.0,
+      "episode_completion": 0.417,
+      "observation_consistency": 1.0,
+      "demonstration_quality": 0.961
+    }
+  },
+  "coverage": {
+    "num_dense_regions": 1,
+    "num_sparse_regions": 1,
+    "overall_score": 0.968
+  },
+  "prescriptions": [
+    {
+      "priority": 1,
+      "task": "lift object",
+      "instruction": "Collect 28 demonstrations of 'lift object'. Focus on: Low visual similarity to task 'lift object' \u2014 dataset may not contain relevant scenes.",
+      "estimated_demos": 28,
+      "gap_description": "Low visual similarity to task 'lift object' \u2014 dataset may not contain relevant scenes.",
+      "current_capability": 0.043,
+      "target_capability": 0.343
+    },
+    {
+      "priority": 2,
+      "task": "stable hold",
+      "instruction": "Collect 17 demonstrations of 'stable hold'. Focus on: Low visual similarity to task 'stable hold' \u2014 dataset may not contain relevant scenes.",
+      "estimated_demos": 17,
+      "gap_description": "Low visual similarity to task 'stable hold' \u2014 dataset may not contain relevant scenes.",
+      "current_capability": 0.401,
+      "target_capability": 0.701
+    }
+  ],
+  "timestamp": "2026-03-09T20:13:28.384739"
+}

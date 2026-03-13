@@ -148,6 +148,7 @@ class DatasetLoader:
 
         episodes: list[dict] = []
         all_image_paths: dict[int, list[str]] = {}
+        all_image_arrays: dict[int, list[np.ndarray]] = {}
 
         for ep_id in range(num_episodes):
             start_idx = from_indices[ep_id]
@@ -157,6 +158,7 @@ class DatasetLoader:
             states_list = []
             actions_list = []
             img_paths: list[str] = []
+            img_arrays: list[np.ndarray] = []
 
             for fi, idx in enumerate(frame_indices):
                 sample = ds[idx]
@@ -199,6 +201,7 @@ class DatasetLoader:
                         img_arr = np.transpose(img_arr, (1, 2, 0))
                     if img_arr.dtype in (np.float32, np.float64):
                         img_arr = (img_arr * 255).clip(0, 255).astype(np.uint8)
+                    img_arrays.append(img_arr.copy())
                     img = Image.fromarray(img_arr)
                     img_path = img_dir / f"ep{ep_id}_f{fi}.png"
                     img.save(img_path)
@@ -213,11 +216,12 @@ class DatasetLoader:
                     }
                 )
                 all_image_paths[ep_id] = img_paths
+                all_image_arrays[ep_id] = img_arrays
 
             if (ep_id + 1) % 10 == 0 or ep_id == num_episodes - 1:
                 logger.info("Converted %d/%d episodes", ep_id + 1, num_episodes)
 
-        DatasetLoader._write_hdf5(output_dir, episodes, all_image_paths)
+        DatasetLoader._write_hdf5(output_dir, episodes, all_image_paths, all_image_arrays)
         return output_dir
 
     # ------------------------------------------------------------------
@@ -312,15 +316,22 @@ class DatasetLoader:
         img_dir = output_dir / "images"
         img_dir.mkdir(exist_ok=True)
 
-        video_file = DatasetLoader._find_best_video(local_path)
-        if video_file:
+        all_image_arrays: dict[int, list[np.ndarray]] = {}
+        video_files = DatasetLoader._find_all_videos(local_path)
+        if video_files:
             # Collect all needed global frame indices
             needed_indices: set[int] = set()
             for indices in ep_frame_indices.values():
                 needed_indices.update(indices)
 
+            # Extract frames as numpy arrays (self-contained in HDF5)
+            frame_array_map = DatasetLoader._extract_frames_as_arrays(
+                video_files, sorted(needed_indices)
+            )
+
+            # Also extract to files for backward compat image_paths
             frame_path_map = DatasetLoader._extract_specific_frames(
-                video_file, img_dir, sorted(needed_indices)
+                video_files[0], img_dir, sorted(needed_indices)
             )
 
             # Map back to episodes
@@ -328,16 +339,20 @@ class DatasetLoader:
                 all_image_paths[ep_id] = [
                     frame_path_map[idx] for idx in indices if idx in frame_path_map
                 ]
+                all_image_arrays[ep_id] = [
+                    frame_array_map[idx] for idx in indices if idx in frame_array_map
+                ]
             logger.info(
-                "Extracted %d frames from video for %d episodes",
-                len(frame_path_map),
+                "Extracted %d frames from %d video(s) for %d episodes",
+                len(frame_array_map),
+                len(video_files),
                 len(ep_frame_indices),
             )
         else:
             logger.warning("No video files found; episodes will have no images")
 
         logger.info("Built %d episodes from parquet data", len(episodes))
-        DatasetLoader._write_hdf5(output_dir, episodes, all_image_paths)
+        DatasetLoader._write_hdf5(output_dir, episodes, all_image_paths, all_image_arrays)
         return output_dir
 
     # ------------------------------------------------------------------
@@ -345,17 +360,27 @@ class DatasetLoader:
     # ------------------------------------------------------------------
 
     @staticmethod
-    def _find_best_video(dataset_dir: Path) -> Path | None:
-        """Find the first camera video file in a LeRobot dataset.
+    def _find_all_videos(dataset_dir: Path) -> list[Path]:
+        """Find all video files for the first camera, sorted by chunk.
 
-        LeRobot v2 stores one concatenated video per camera under
+        LeRobot v2 stores videos under
         ``videos/<camera_key>/chunk-*/file-*.mp4``.  We pick the first
-        camera alphabetically.
+        camera alphabetically and return all its chunks in order.
         """
         video_dir = dataset_dir / "videos"
         if not video_dir.exists():
-            return None
+            return []
         videos = sorted(video_dir.glob("**/*.mp4"))
+        if not videos:
+            return []
+        # Group by camera (first path component under videos/)
+        first_camera = videos[0].relative_to(video_dir).parts[0]
+        return [v for v in videos if v.relative_to(video_dir).parts[0] == first_camera]
+
+    @staticmethod
+    def _find_best_video(dataset_dir: Path) -> Path | None:
+        """Find the first camera video file (backward compat wrapper)."""
+        videos = DatasetLoader._find_all_videos(dataset_dir)
         return videos[0] if videos else None
 
     @staticmethod
@@ -429,6 +454,98 @@ class DatasetLoader:
         logger.warning("No video extraction method available for %s", video_path)
         return {}
 
+    @staticmethod
+    def _extract_frames_as_arrays(
+        video_paths: list[Path],
+        frame_indices: list[int],
+    ) -> dict[int, np.ndarray]:
+        """Extract specific frames as numpy arrays (HWC uint8 RGB).
+
+        Iterates through multiple video files sequentially (for multi-chunk
+        datasets), maintaining a running frame offset.
+
+        Returns ``{global_frame_index: ndarray}``.
+        """
+        if not frame_indices or not video_paths:
+            return {}
+
+        needed = set(frame_indices)
+        result: dict[int, np.ndarray] = {}
+
+        # Try OpenCV
+        try:
+            import cv2
+
+            global_offset = 0
+            for vpath in video_paths:
+                cap = cv2.VideoCapture(str(vpath))
+                if not cap.isOpened():
+                    logger.warning("Cannot open video %s, skipping", vpath)
+                    continue
+
+                local_idx = 0
+                while True:
+                    ret, frame = cap.read()
+                    if not ret:
+                        break
+                    global_idx = global_offset + local_idx
+                    if global_idx in needed:
+                        # BGR -> RGB
+                        result[global_idx] = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+                    local_idx += 1
+                    # Early exit if we have everything
+                    if len(result) == len(needed):
+                        cap.release()
+                        logger.info(
+                            "Extracted %d/%d frames as arrays via OpenCV",
+                            len(result), len(needed),
+                        )
+                        return result
+
+                cap.release()
+                global_offset += local_idx
+
+            logger.info(
+                "Extracted %d/%d frames as arrays via OpenCV",
+                len(result), len(needed),
+            )
+            if result:
+                return result
+        except ImportError:
+            pass
+        except Exception as exc:
+            logger.warning("OpenCV array extraction failed: %s", exc)
+
+        # Fallback: ffmpeg to temp dir, load as arrays, clean up
+        import shutil
+        import tempfile
+
+        for vpath in video_paths:
+            tmp_dir = Path(tempfile.mkdtemp(prefix="orbit_ffmpeg_"))
+            try:
+                pattern = str(tmp_dir / "frame_%06d.png")
+                cmd = [
+                    "ffmpeg", "-i", str(vpath), pattern,
+                    "-y", "-loglevel", "error",
+                ]
+                subprocess.run(cmd, check=True, capture_output=True, timeout=600)
+                # ffmpeg names frames 1-based
+                for idx in needed:
+                    ffmpeg_path = tmp_dir / f"frame_{idx + 1:06d}.png"
+                    if ffmpeg_path.exists() and idx not in result:
+                        from PIL import Image as _PILImage
+
+                        img = _PILImage.open(ffmpeg_path).convert("RGB")
+                        result[idx] = np.asarray(img, dtype=np.uint8)
+            except (FileNotFoundError, subprocess.CalledProcessError) as exc:
+                logger.warning("ffmpeg array extraction failed for %s: %s", vpath, exc)
+            finally:
+                shutil.rmtree(tmp_dir, ignore_errors=True)
+
+        if not result:
+            logger.warning("No video extraction method available for arrays")
+        return result
+
     # ------------------------------------------------------------------
     # Helpers
     # ------------------------------------------------------------------
@@ -438,11 +555,19 @@ class DatasetLoader:
         output_dir: Path,
         episodes: list[dict],
         image_paths: dict[int, list[str]],
+        image_arrays: dict[int, list[np.ndarray]] | None = None,
     ) -> Path:
-        """Write episodes to ORBIT-format HDF5."""
+        """Write episodes to ORBIT-format HDF5.
+
+        When *image_arrays* is provided, images are embedded directly as
+        numpy arrays under ``/episodes/{id}/images`` (shape N×H×W×3, uint8).
+        This makes the HDF5 self-contained and portable across environments.
+        """
         import h5py
 
         h5_path = output_dir / "session_lerobot.h5"
+        total_image_bytes = 0
+
         with h5py.File(h5_path, "w") as f:
             f.attrs["session_id"] = "lerobot_conversion"
             eps_grp = f.create_group("episodes")
@@ -452,10 +577,45 @@ class DatasetLoader:
                 grp.create_dataset("states", data=ep["states"].astype(np.float32))
                 grp.create_dataset("actions", data=ep["actions"].astype(np.float32))
 
+                # Legacy: write image file paths
                 paths = image_paths.get(eid, [])
                 if paths:
                     dt = h5py.string_dtype()
                     grp.create_dataset("image_paths", data=paths, dtype=dt)
+
+                # New: embed image arrays directly in HDF5
+                arrays = (image_arrays or {}).get(eid, [])
+                if arrays:
+                    # Ensure uniform resolution (resize to first image's shape)
+                    target_shape = arrays[0].shape[:2]  # (H, W)
+                    uniform = []
+                    for arr in arrays:
+                        if arr.shape[:2] != target_shape:
+                            from PIL import Image as _PILImage
+
+                            img = _PILImage.fromarray(arr)
+                            img = img.resize(
+                                (target_shape[1], target_shape[0]),
+                                _PILImage.LANCZOS,
+                            )
+                            arr = np.asarray(img, dtype=np.uint8)
+                        uniform.append(arr)
+                    stacked = np.stack(uniform)
+                    total_image_bytes += stacked.nbytes
+                    grp.create_dataset(
+                        "images",
+                        data=stacked,
+                        dtype=np.uint8,
+                        chunks=True,
+                        compression="gzip",
+                        compression_opts=1,
+                    )
+
+        if total_image_bytes > 1_000_000_000:
+            logger.warning(
+                "HDF5 image data is %.1f GB — consider reducing max_episodes",
+                total_image_bytes / 1e9,
+            )
 
         logger.info("Wrote %d episodes to %s", len(episodes), h5_path)
         return h5_path

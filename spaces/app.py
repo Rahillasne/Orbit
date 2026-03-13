@@ -1,7 +1,8 @@
-"""ORBIT Dashboard — HuggingFace Spaces version.
+"""ORBIT Demo — HuggingFace Spaces version.
 
-Interactive dashboard for robot learning failure analysis.
-Uses pre-generated synthetic deployment data.
+Interactive demo showcasing ORBIT's dataset readiness analysis,
+validated benchmark results, and sim-to-real transfer analysis.
+All data is pre-computed — no GPU required.
 """
 
 from __future__ import annotations
@@ -9,47 +10,42 @@ from __future__ import annotations
 import csv
 import io
 import json
-import sys
 from pathlib import Path
 
+import numpy as np
 import pandas as pd
 import plotly.express as px
 import plotly.graph_objects as go
 import streamlit as st
 
-from data_loader import (
-    deserialize_episodes,
-    discover_sessions,
-    episodes_to_summary_df,
-    get_failure_type_counts,
-    load_session_episodes,
-    run_detector_pipeline,
-    run_prescriber,
-)
-
 # ---------------------------------------------------------------------------
-# Constants
+# Constants & Helpers
 # ---------------------------------------------------------------------------
 
-COLOR_SUCCESS = "#2ecc71"
-COLOR_FAILURE = "#e74c3c"
-COLOR_UNKNOWN = "#95a5a6"
-OUTCOME_COLORS = {"success": COLOR_SUCCESS, "failure": COLOR_FAILURE, "unknown": COLOR_UNKNOWN}
+DATA_DIR = Path("./data")
 
-DEFAULT_DATA_DIR = "./data"
+COLOR_STRONG = "#2ecc71"
+COLOR_ADEQUATE = "#f39c12"
+COLOR_WEAK = "#e74c3c"
+COLOR_BG_WARN = "#fff3cd"
+COLOR_BG_DANGER = "#f8d7da"
 
-
-# ---------------------------------------------------------------------------
-# Helpers
-# ---------------------------------------------------------------------------
+SCENARIO_COLORS = {
+    "high_capability_manipulation": "#3498db",
+    "medium_capability_manipulation": "#2ecc71",
+    "low_capability_for_manipulation": "#e74c3c",
+    "quality_degraded_manipulation": "#f39c12",
+    "multi_task_manip_and_cooking": "#9b59b6",
+    "high_capability_navigation": "#1abc9c",
+}
 
 
 def _traffic_light(score: float) -> str:
     if score >= 0.7:
-        return "#2ecc71"
+        return COLOR_STRONG
     if score >= 0.4:
-        return "#f39c12"
-    return "#e74c3c"
+        return COLOR_ADEQUATE
+    return COLOR_WEAK
 
 
 def _verdict(score: float) -> str:
@@ -62,593 +58,665 @@ def _verdict(score: float) -> str:
     return "No Coverage"
 
 
+def _score_emoji(score: float) -> str:
+    if score >= 0.7:
+        return "🟢"
+    if score >= 0.4:
+        return "🟡"
+    return "🔴"
+
+
 @st.cache_data
-def _load_demo_profile():
-    profile_path = Path("./data/demo_profile.json")
-    if not profile_path.exists():
+def _load_json(filename: str):
+    path = DATA_DIR / filename
+    if not path.exists():
         return None
-    with open(profile_path) as f:
+    with open(path) as f:
         return json.load(f)
 
 
-def _get_data_dir() -> str:
-    if "data_dir" not in st.session_state:
-        st.session_state["data_dir"] = DEFAULT_DATA_DIR
-    return st.session_state["data_dir"]
-
-
-def _ensure_episodes():
-    if "selected_session" not in st.session_state:
-        return None
-    session = st.session_state["selected_session"]
-    if not session:
-        return None
-    cache_key = f"episodes_{session['session_id']}"
-    if cache_key not in st.session_state:
-        ep_dicts = load_session_episodes(session["file_path"])
-        st.session_state[cache_key] = ep_dicts
-    return st.session_state[cache_key]
-
-
 # ---------------------------------------------------------------------------
-# Sidebar
+# Header
 # ---------------------------------------------------------------------------
 
-
-def render_sidebar() -> None:
-    st.sidebar.title("🛰️ ORBIT")
-    st.sidebar.caption("Deployment Diagnostics for Robot Policies")
-    st.sidebar.divider()
-
-    data_dir = st.sidebar.text_input("Data directory", value=_get_data_dir())
-    st.session_state["data_dir"] = data_dir
-
-    sessions = discover_sessions(data_dir)
-    if not sessions:
-        st.sidebar.warning("No session files found in this directory.")
-        st.session_state["selected_session"] = None
-        return
-
-    labels = [f"{s['session_id'][:8]}... ({s['episode_count']} episodes)" for s in sessions]
-    idx = st.sidebar.selectbox("Session", range(len(labels)), format_func=lambda i: labels[i])
-    st.session_state["selected_session"] = sessions[idx]
-
-    if st.sidebar.button("Refresh data"):
-        st.cache_data.clear()
-        st.rerun()
-
-    st.sidebar.divider()
-    st.sidebar.markdown("[GitHub](https://github.com/Rahillasne/Orbit)")
-    st.sidebar.markdown("Made by Rahil Lasne")
-
-
-# ---------------------------------------------------------------------------
-# PAGE 1: Session Overview
-# ---------------------------------------------------------------------------
-
-
-def page_session_overview() -> None:
-    st.header("Session Overview")
-
-    st.info(
-        "This demo uses synthetic deployment data (20 episodes, 60% success rate). "
-        "In real use, you'd point ORBIT at your own deployment logs."
-    )
-
-    ep_dicts = _ensure_episodes()
-    if not ep_dicts:
-        st.info("Select a session from the sidebar to view episodes.")
-        return
-
-    episodes = deserialize_episodes(ep_dicts)
-    df = episodes_to_summary_df(episodes)
-    if df.empty:
-        st.info("No episodes in this session.")
-        return
-
-    total = len(df)
-    successes = int((df["outcome"] == "success").sum())
-    success_rate = successes / total if total > 0 else 0
-    avg_duration = df["duration"].dropna().mean() if not df["duration"].isna().all() else 0
-
-    c1, c2, c3, c4 = st.columns(4)
-    c1.metric("Total Episodes", total)
-    c2.metric("Success Rate", f"{success_rate:.0%}")
-    c3.metric("Avg Duration", f"{avg_duration:.1f}s" if avg_duration else "N/A")
-    c4.metric("Avg Frames", f"{df['num_frames'].mean():.0f}")
-
-    st.subheader("Episode Timeline")
-    fig = go.Figure()
-    for outcome, color in OUTCOME_COLORS.items():
-        mask = df["outcome"] == outcome
-        subset = df[mask]
-        if subset.empty:
-            continue
-        fig.add_trace(go.Bar(
-            y=subset["episode_id"], x=subset["num_frames"], orientation="h",
-            name=outcome.capitalize(), marker_color=color,
-            hovertemplate="<b>%{y}</b><br>Frames: %{x}<br>Reward: %{customdata[0]:.2f}<br><extra></extra>",
-            customdata=subset[["total_reward"]].values,
-        ))
-    fig.update_layout(
-        xaxis_title="Number of Frames", yaxis_title="Episode", barmode="stack",
-        height=max(300, 30 * total), template="plotly_white",
-        legend=dict(orientation="h", yanchor="bottom", y=1.02),
-    )
-    st.plotly_chart(fig, use_container_width=True)
-
-    st.subheader("Quick Failure Summary")
-    detection_results = run_detector_pipeline(episodes)
-    counts = get_failure_type_counts(detection_results)
-    if counts:
-        top3 = dict(list(counts.items())[:3])
-        cols = st.columns(len(top3))
-        for col, (detector, count) in zip(cols, top3.items()):
-            label = detector.replace("Detector", "")
-            col.metric(label, count)
-    else:
-        st.success("No failures detected by heuristic detectors.")
+_HEADER_CSS = """
+<style>
+    .orbit-header {
+        text-align: center;
+        padding: 1rem 0 0.5rem 0;
+    }
+    .orbit-header h1 {
+        font-size: 2.2rem;
+        margin-bottom: 0.2rem;
+    }
+    .orbit-subtitle {
+        font-size: 1.1rem;
+        color: #666;
+        margin-bottom: 0.8rem;
+    }
+    .orbit-badges {
+        display: flex;
+        justify-content: center;
+        gap: 0.5rem;
+        flex-wrap: wrap;
+        margin-bottom: 0.5rem;
+    }
+    .orbit-badge {
+        display: inline-block;
+        padding: 0.2rem 0.6rem;
+        border-radius: 4px;
+        font-size: 0.8rem;
+        font-weight: 600;
+    }
+    .badge-blue { background: #dbeafe; color: #1e40af; }
+    .badge-green { background: #d1fae5; color: #065f46; }
+    .badge-purple { background: #ede9fe; color: #5b21b6; }
+    .story-callout {
+        padding: 1rem 1.2rem;
+        border-radius: 8px;
+        margin: 0.5rem 0;
+    }
+    .callout-danger {
+        background: #fef2f2;
+        border-left: 4px solid #ef4444;
+    }
+    .callout-success {
+        background: #f0fdf4;
+        border-left: 4px solid #22c55e;
+    }
+    .callout-info {
+        background: #eff6ff;
+        border-left: 4px solid #3b82f6;
+    }
+</style>
+"""
 
 
-# ---------------------------------------------------------------------------
-# PAGE 2: Distribution View
-# ---------------------------------------------------------------------------
-
-
-def page_distribution_view() -> None:
-    st.header("Distribution View")
-
-    ep_dicts = _ensure_episodes()
-    if not ep_dicts:
-        st.info("Select a session from the sidebar.")
-        return
-
-    episodes = deserialize_episodes(ep_dicts)
-
-    st.subheader("Embedding Space (UMAP)")
-    st.info(
-        "UMAP visualization requires the full ORBIT installation with ML dependencies. "
-        "Install the full package and run the EmbeddingAnalyzer to generate interactive plots."
-    )
-
-    df = episodes_to_summary_df(episodes)
-    if len(df) > 1:
-        st.subheader("Episode Metric Scatter")
-        fig = px.scatter(
-            df, x="total_reward", y="num_frames", color="outcome",
-            size="avg_action_mag", hover_data=["episode_id", "task_name"],
-            color_discrete_map=OUTCOME_COLORS, title="Reward vs Frames (colored by outcome)",
-        )
-        fig.update_layout(template="plotly_white")
-        st.plotly_chart(fig, use_container_width=True)
-
-    st.subheader("Reward per Episode")
-    if not df.empty:
-        fig = px.bar(df, x="episode_id", y="total_reward", color="outcome", color_discrete_map=OUTCOME_COLORS)
-        fig.update_layout(template="plotly_white")
-        st.plotly_chart(fig, use_container_width=True)
-
-
-# ---------------------------------------------------------------------------
-# PAGE 3: Failure Analysis
-# ---------------------------------------------------------------------------
-
-
-def page_failure_analysis() -> None:
-    st.header("Failure Analysis")
-
-    ep_dicts = _ensure_episodes()
-    if not ep_dicts:
-        st.info("Select a session from the sidebar.")
-        return
-
-    episodes = deserialize_episodes(ep_dicts)
-
-    st.subheader("Heuristic Detection Results")
-    detection_results = run_detector_pipeline(episodes)
-
-    n_failures = sum(1 for r in detection_results if r["is_failure"])
-    st.write(f"**{len(detection_results)}** episodes analyzed, **{n_failures}** failures detected.")
-
-    counts = get_failure_type_counts(detection_results)
-    if counts:
-        reason_df = pd.DataFrame([{"Detector": k, "Count": v} for k, v in counts.items()])
-        fig = px.pie(
-            reason_df, names="Detector", values="Count",
-            title="Failure Type Distribution", color_discrete_sequence=px.colors.qualitative.Set2,
-        )
-        st.plotly_chart(fig, use_container_width=True)
-
-    failure_rows = []
-    for r in detection_results:
-        if r["is_failure"]:
-            failure_rows.append({
-                "Episode": r["episode_id"][:8],
-                "Probability": f"{r['failure_probability']:.0%}",
-                "Detections": len(r["detections"]),
-                "Details": "; ".join(d["description"] for d in r["detections"][:3]),
-            })
-    if failure_rows:
-        st.dataframe(pd.DataFrame(failure_rows), use_container_width=True)
-
-    st.subheader("Failure Clusters")
-    st.info(
-        "Cluster analysis requires the full ORBIT installation with ML dependencies. "
-        "Run the EmbeddingAnalyzer with `generate_viz=True` to generate cluster reports."
+def _render_header():
+    st.markdown(_HEADER_CSS, unsafe_allow_html=True)
+    st.markdown(
+        '<div class="orbit-header">'
+        "<h1>ORBIT — Open Robot Iteration Toolkit</h1>"
+        '<p class="orbit-subtitle">'
+        "Understand what your robot dataset can do before you deploy."
+        "</p>"
+        '<div class="orbit-badges">'
+        '<span class="orbit-badge badge-blue">v1.2.0</span>'
+        '<span class="orbit-badge badge-green">LOOCV Spearman rho = 0.61</span>'
+        '<span class="orbit-badge badge-purple">399 tests passed</span>'
+        "</div>"
+        "</div>",
+        unsafe_allow_html=True,
     )
 
 
 # ---------------------------------------------------------------------------
-# PAGE 4: Prescriptions
+# TAB 1: Dataset Readiness Analyzer
 # ---------------------------------------------------------------------------
 
 
-def page_prescriptions() -> None:
-    st.header("Prescriptions")
+def _tab_dataset_readiness():
+    st.markdown("#### Analyze your dataset's readiness for robot learning tasks")
 
-    st.info(
-        "These prescriptions are generated automatically from the distribution gap analysis. "
-        "Each task targets a specific failure cluster."
-    )
-
-    ep_dicts = _ensure_episodes()
-    if not ep_dicts:
-        st.info("Select a session from the sidebar.")
-        return
-
-    episodes = deserialize_episodes(ep_dicts)
-    detection_results = run_detector_pipeline(episodes)
-
-    n_failures = sum(1 for r in detection_results if r["is_failure"])
-    if n_failures == 0:
-        st.success("No failures detected — no prescriptions needed.")
-        return
-
-    report = run_prescriber(detection_results, episodes)
-    st.write(f"**Summary**: {report['summary']}")
-    st.write(f"Failures analyzed: **{report['num_failures_analyzed']}**")
-
-    st.subheader("Recommendations")
-    prescriptions = report["prescriptions"]
-    if prescriptions:
-        table_data = []
-        for p in prescriptions:
-            desc = p["description"]
-            table_data.append({
-                "Priority": p["priority"],
-                "Type": p["type"].replace("_", " ").title(),
-                "Title": p["title"],
-                "Confidence": f"{p['confidence']:.0%}",
-                "Description": desc[:120] + "..." if len(desc) > 120 else desc,
-            })
-        st.dataframe(pd.DataFrame(table_data), use_container_width=True, hide_index=True)
-
-        for p in prescriptions:
-            with st.expander(f"[{p['priority']}] {p['title']}"):
-                st.write(p["description"])
-                if p["evidence"]:
-                    st.write("**Evidence:**")
-                    for e in p["evidence"]:
-                        st.write(f"- {e}")
-                if p["suggested_params"]:
-                    st.write("**Suggested parameters:**")
-                    st.json(p["suggested_params"])
-
-        st.subheader("Export")
-        c1, c2, c3 = st.columns(3)
-
-        json_str = json.dumps(prescriptions, indent=2)
-        c1.download_button("Download JSON", data=json_str, file_name="orbit_prescriptions.json", mime="application/json")
-
-        csv_buf = io.StringIO()
-        writer = csv.DictWriter(csv_buf, fieldnames=["priority", "type", "title", "description", "confidence", "evidence"])
-        writer.writeheader()
-        for p in prescriptions:
-            writer.writerow({
-                "priority": p["priority"], "type": p["type"], "title": p["title"],
-                "description": p["description"], "confidence": p["confidence"],
-                "evidence": "; ".join(p["evidence"]),
-            })
-        c2.download_button("Download CSV", data=csv_buf.getvalue(), file_name="orbit_prescriptions.csv", mime="text/csv")
-
-        md_lines = ["# Orbit Prescriptions\n"]
-        for p in prescriptions:
-            md_lines.append(f"## [{p['priority']}] {p['title']}")
-            md_lines.append(f"**Type:** {p['type']}  ")
-            md_lines.append(f"**Confidence:** {p['confidence']:.0%}\n")
-            md_lines.append(p["description"] + "\n")
-            if p["evidence"]:
-                md_lines.append("**Evidence:**")
-                for e in p["evidence"]:
-                    md_lines.append(f"- {e}")
-                md_lines.append("")
-        c3.download_button("Download Markdown", data="\n".join(md_lines), file_name="orbit_prescriptions.md", mime="text/markdown")
-
-    st.subheader("Progress Tracking")
-    st.text_area(
-        "Notes on new data collection",
-        value=st.session_state.get("progress_notes", ""),
-        key="progress_notes",
-        placeholder="Track your progress collecting new data here...",
-    )
-
-
-# ---------------------------------------------------------------------------
-# PAGE 5: Dataset Profiler
-# ---------------------------------------------------------------------------
-
-
-def page_dataset_profiler() -> None:
-    st.header("Dataset Profiler")
-
-    st.info(
-        "This page shows a pre-generated profile of the synthetic benchmark dataset "
-        "(40 episodes, 400 frames). In production, ORBIT profiles real robot datasets "
-        "using SigLIP embeddings and FAISS similarity search."
-    )
-
-    demo = _load_demo_profile()
+    demo = _load_json("demo_profile.json")
     if demo is None:
         st.error("Demo profile not found. Expected data/demo_profile.json.")
         return
 
-    report = demo["report"]
-    data = demo["dashboard"]
+    # --- Dataset selector ---
+    col_sel, col_btn = st.columns([3, 1])
+    with col_sel:
+        dataset_choice = st.selectbox(
+            "Choose a dataset",
+            ["ORBIT Synthetic Benchmark (40 episodes, 8 tasks)", "Upload your own profile"],
+        )
+    with col_btn:
+        st.write("")  # spacer
+        analyze_clicked = st.button("Analyze Dataset", type="primary", use_container_width=True)
 
-    # --- Tab layout ---
-    tab_demo, tab_upload = st.tabs(["Demo Profile", "Try with your own data"])
-
-    with tab_upload:
-        st.subheader("Upload a Profile")
+    if dataset_choice.startswith("Upload"):
         st.write(
             "Upload a profile JSON generated by `orbit profile --format json`. "
             "For full profiling with SigLIP embeddings:"
         )
-        st.code("pip install orbit-robotics[profile]\norbit profile --data-dir ./my_data --tasks 'pick up cup' 'open drawer' --format json --output profile.json", language="bash")
-
+        st.code(
+            "pip install orbit-robotics[profile]\n"
+            "orbit profile --data-dir ./my_data --tasks 'pick up cup' --format json --output profile.json",
+            language="bash",
+        )
         uploaded = st.file_uploader("Upload profile JSON", type=["json"])
         if uploaded is not None:
             try:
                 custom = json.load(uploaded)
                 if "report" in custom and "dashboard" in custom:
-                    report = custom["report"]
-                    data = custom["dashboard"]
-                    st.success("Custom profile loaded successfully!")
+                    demo = custom
+                    st.success("Custom profile loaded!")
                 else:
-                    st.error("Invalid profile format. Expected keys: 'report' and 'dashboard'.")
+                    st.error("Invalid format. Expected keys: 'report' and 'dashboard'.")
                     return
             except json.JSONDecodeError:
-                st.error("Failed to parse JSON file.")
+                st.error("Failed to parse JSON.")
                 return
-
-    with tab_demo:
-        # --- Task selector ---
-        st.subheader("Explore Capabilities")
-
-        all_tasks = [c["task"] for c in report["capabilities"]]
-        selected_tasks = st.multiselect(
-            "Select tasks to view",
-            options=all_tasks,
-            default=all_tasks,
-        )
-
-        custom_task = st.text_input(
-            "Or type a custom task description",
-            placeholder="e.g. grasp small object",
-        )
-        if custom_task:
-            matched = [
-                t for t in all_tasks
-                if custom_task.lower() in t.lower() or t.lower() in custom_task.lower()
-            ]
-            if matched:
-                st.success(f"Matched pre-computed task: **{matched[0]}**")
-                if matched[0] not in selected_tasks:
-                    selected_tasks = list(selected_tasks) + matched
-            else:
-                st.info(
-                    f"No pre-computed scores for '{custom_task}'. "
-                    "Custom task scoring requires the full ORBIT install with SigLIP:\n\n"
-                    "`pip install orbit-robotics[profile]`"
-                )
-
-        # --- Overview metrics ---
-        st.subheader("Overview")
-        stats = data["summary_stats"]
-        c1, c2, c3, c4 = st.columns(4)
-        c1.metric("Episodes", stats["num_episodes"])
-        c2.metric("Frames", stats["num_frames"])
-
-        cov = stats["overall_coverage"]
-        c3.metric("Coverage Score", f"{cov:.3f}")
-        qual = stats["aggregate_quality"]
-        c4.metric("Quality Score", f"{qual:.3f}")
-
-        tl1, tl2 = st.columns(2)
-        tl1.markdown(
-            f'<div style="display:inline-block;width:18px;height:18px;'
-            f'border-radius:50%;background:{_traffic_light(cov)}"></div>'
-            f" Coverage: **{cov:.3f}**",
-            unsafe_allow_html=True,
-        )
-        tl2.markdown(
-            f'<div style="display:inline-block;width:18px;height:18px;'
-            f'border-radius:50%;background:{_traffic_light(qual)}"></div>'
-            f" Quality: **{qual:.3f}**",
-            unsafe_allow_html=True,
-        )
-
-        # --- Coverage Map ---
-        st.subheader("Coverage Map")
-        umap_data = data.get("coverage_umap")
-        cluster_labels = data.get("cluster_labels")
-        if umap_data:
-            import numpy as np
-            umap_arr = np.array(umap_data)
-            umap_df = pd.DataFrame({"x": umap_arr[:, 0], "y": umap_arr[:, 1]})
-            if cluster_labels:
-                umap_df["Cluster"] = [f"Region {l}" for l in cluster_labels]
-                fig = px.scatter(
-                    umap_df, x="x", y="y", color="Cluster",
-                    title="Embedding Space (UMAP)",
-                    opacity=0.5,
-                    color_discrete_sequence=["#3498db", "#2ecc71", "#e74c3c"],
-                )
-            else:
-                fig = px.scatter(umap_df, x="x", y="y", title="Embedding Space (UMAP)", opacity=0.5)
-            fig.update_layout(template="plotly_white")
-            st.plotly_chart(fig, use_container_width=True)
         else:
-            cov_data = report.get("coverage", {})
-            st.write(f"Dense regions: **{cov_data.get('num_dense_regions', 0)}** | "
-                     f"Sparse regions: **{cov_data.get('num_sparse_regions', 0)}**")
+            return
 
-        # --- Capability Scores ---
-        st.subheader("Capability Scores")
-        filtered_caps = [c for c in data.get("capability_bars", []) if c["task"] in selected_tasks]
-        if filtered_caps:
-            cap_df = pd.DataFrame(filtered_caps)
-            cap_df["verdict"] = cap_df["score"].apply(_verdict)
+    if not analyze_clicked and "readiness_analyzed" not in st.session_state:
+        st.info("Click **Analyze Dataset** to see results.")
+        return
 
-            fig = px.bar(
-                cap_df, x="task", y="score", color="score",
-                color_continuous_scale=["#e74c3c", "#f39c12", "#2ecc71"],
-                range_color=[0, 1],
-                title="Task Capability Scores",
+    st.session_state["readiness_analyzed"] = True
+
+    report = demo["report"]
+    data = demo["dashboard"]
+    stats = data["summary_stats"]
+    capabilities = report["capabilities"]
+
+    # --- Summary metrics ---
+    st.divider()
+    c1, c2, c3, c4 = st.columns(4)
+    c1.metric("Episodes", stats["num_episodes"])
+    c2.metric("Frames", stats["num_frames"])
+    c3.metric("Coverage", f"{stats['overall_coverage']:.2f}")
+    c4.metric("Quality", f"{stats['aggregate_quality']:.2f}")
+
+    # --- Report Card Section ---
+    report_card_data = data.get("report_card")
+    if report_card_data:
+        st.divider()
+        st.markdown("### Report Card")
+
+        def _grade_color(g):
+            if g in ("A", "B"):
+                return COLOR_STRONG
+            return COLOR_ADEQUATE if g == "C" else COLOR_WEAK
+
+        # Overall grade - large display
+        overall_g = report_card_data.get("overall_grade", "?")
+        overall_s = report_card_data.get("overall_score", 0)
+        st.markdown(
+            f'<div style="text-align:center;padding:1rem">'
+            f'<span style="font-size:3rem;font-weight:bold;color:{_grade_color(overall_g)}">'
+            f'{overall_g}</span>'
+            f'<br><span style="color:#666">Overall Grade ({overall_s:.2f})</span></div>',
+            unsafe_allow_html=True,
+        )
+
+        # Sub-grades in columns
+        grades = report_card_data.get("grades", {})
+        gc1, gc2, gc3, gc4 = st.columns(4)
+        for col, (dim, info) in zip(
+            [gc1, gc2, gc3, gc4],
+            [
+                ("Coverage", grades.get("coverage", {})),
+                ("Quality", grades.get("quality", {})),
+                ("Diversity", grades.get("diversity", {})),
+                ("Volume", grades.get("volume", {})),
+            ],
+        ):
+            g = info.get("grade", "?")
+            s = info.get("score", 0)
+            color = _grade_color(g)
+            col.markdown(
+                f'<div style="text-align:center">'
+                f'<span style="font-size:1.8rem;font-weight:bold;'
+                f'color:{color}">{g}</span>'
+                f'<br><span style="font-size:0.9rem;color:#666">'
+                f'{dim} ({s:.2f})</span></div>',
+                unsafe_allow_html=True,
             )
-            fig.update_layout(template="plotly_white", xaxis_title="Task", yaxis_title="Score")
-            st.plotly_chart(fig, use_container_width=True)
 
+        # Strengths and weaknesses
+        rc_col1, rc_col2 = st.columns(2)
+        with rc_col1:
+            st.markdown("**Strengths**")
+            for s in report_card_data.get("strengths", []):
+                st.markdown(f"- :green[{s}]")
+        with rc_col2:
+            st.markdown("**Weaknesses**")
+            for w in report_card_data.get("weaknesses", []):
+                st.markdown(f"- :red[{w}]")
+
+        # Task grades
+        task_assessments = report_card_data.get("task_assessments", [])
+        if task_assessments:
+            st.markdown("**Task Grades**")
+            ta_df = pd.DataFrame(task_assessments)
+            all_cols = ["task", "grade", "score", "coverage",
+                       "confidence", "finding"]
+            display_cols = [c for c in all_cols if c in ta_df.columns]
             st.dataframe(
-                cap_df[["task", "score", "confidence", "verdict"]].rename(columns={
-                    "task": "Task", "score": "Score", "confidence": "Confidence", "verdict": "Verdict",
+                ta_df[display_cols].rename(columns={
+                    "task": "Task", "grade": "Grade", "score": "Score",
+                    "coverage": "Coverage", "confidence": "Confidence",
+                    "finding": "Finding",
                 }),
                 use_container_width=True, hide_index=True,
             )
 
-            # Expandable details
-            cap_details = {c["task"]: c for c in report["capabilities"]}
-            for cap in filtered_caps:
-                detail = cap_details.get(cap["task"], {})
-                with st.expander(f"{cap['task']} \u2014 {_verdict(cap['score'])}"):
-                    st.write(f"**Score:** {cap['score']:.3f} | **Confidence:** {cap['confidence']:.3f}")
-                    st.write(f"**Supporting episodes:** {detail.get('supporting_episodes', 'N/A')}")
-                    if detail.get("gap_description"):
-                        st.write(f"**Gap:** {detail['gap_description']}")
-                    st.write(f"**Action diversity:** {detail.get('action_diversity', 'N/A')} | "
-                             f"**Environment diversity:** {detail.get('environment_diversity', 'N/A')}")
-        else:
-            st.info("No tasks selected. Use the selector above to view capability scores.")
+    # --- What your dataset CAN do ---
+    st.markdown(
+        '<div class="story-callout callout-success">'
+        "<strong>What your dataset can do</strong></div>",
+        unsafe_allow_html=True,
+    )
+    strong_tasks = [c for c in capabilities if c["score"] >= 0.5]
+    if strong_tasks:
+        cap_df = pd.DataFrame(strong_tasks)
+        fig = px.bar(
+            cap_df.sort_values("score", ascending=True),
+            x="score", y="task", orientation="h",
+            color="score",
+            color_continuous_scale=["#f39c12", "#2ecc71"],
+            range_color=[0, 1],
+            labels={"score": "Capability Score", "task": ""},
+        )
+        fig.update_layout(
+            template="plotly_white", height=max(200, 45 * len(strong_tasks)),
+            showlegend=False, coloraxis_showscale=False,
+            margin=dict(l=0, r=20, t=10, b=10),
+        )
+        st.plotly_chart(fig, use_container_width=True)
 
-        # --- Quality Distribution ---
-        st.subheader("Quality Distribution")
-        qual_data = data.get("quality_histogram", {})
-        scores = qual_data.get("scores", [])
-        if scores:
-            fig = px.histogram(
-                x=scores, nbins=20,
-                labels={"x": "Quality Score", "y": "Count"},
-                title="Per-Episode Quality Scores",
+    # --- What it CANNOT do ---
+    weak_tasks = [c for c in capabilities if c["score"] < 0.3]
+    if weak_tasks:
+        st.markdown(
+            '<div class="story-callout callout-danger">'
+            "<strong>What it cannot do</strong> — These tasks have insufficient data coverage"
+            "</div>",
+            unsafe_allow_html=True,
+        )
+        for t in weak_tasks:
+            gap = t.get("gap_description") or "Insufficient data coverage"
+            st.markdown(f"- **{t['task']}** (score: {t['score']:.2f}) — {gap}")
+
+    # --- Full capability table ---
+    with st.expander("View all capability scores"):
+        all_cap_df = pd.DataFrame(capabilities)
+        all_cap_df["verdict"] = all_cap_df["score"].apply(_verdict)
+        all_cap_df["indicator"] = all_cap_df["score"].apply(_score_emoji)
+        display_df = all_cap_df[["indicator", "task", "score", "confidence", "supporting_episodes", "verdict"]].rename(
+            columns={
+                "indicator": "", "task": "Task", "score": "Score",
+                "confidence": "Confidence", "supporting_episodes": "Episodes",
+                "verdict": "Verdict",
+            }
+        )
+        st.dataframe(display_df, use_container_width=True, hide_index=True)
+
+    # --- What to collect next ---
+    prescriptions = data.get("prescription_table", [])
+    if prescriptions:
+        st.markdown(
+            '<div class="story-callout callout-info">'
+            "<strong>What to collect next</strong> — Ranked data collection tasks"
+            "</div>",
+            unsafe_allow_html=True,
+        )
+        rx_df = pd.DataFrame(prescriptions)
+        display_cols = [c for c in ["priority", "task", "instruction", "estimated_demos",
+                                    "current_capability", "target_capability"] if c in rx_df.columns]
+        st.dataframe(
+            rx_df[display_cols].rename(columns={
+                "priority": "Priority", "task": "Task", "instruction": "What to Do",
+                "estimated_demos": "Demos Needed", "current_capability": "Current",
+                "target_capability": "Target",
+            }),
+            use_container_width=True, hide_index=True,
+        )
+
+        # Export buttons
+        ec1, ec2, ec3 = st.columns(3)
+        ec1.download_button(
+            "Download JSON", data=json.dumps(prescriptions, indent=2),
+            file_name="orbit_prescriptions.json", mime="application/json",
+        )
+        csv_buf = io.StringIO()
+        writer = csv.DictWriter(csv_buf, fieldnames=display_cols)
+        writer.writeheader()
+        for p in prescriptions:
+            writer.writerow({k: p.get(k, "") for k in display_cols})
+        ec2.download_button(
+            "Download CSV", data=csv_buf.getvalue(),
+            file_name="orbit_prescriptions.csv", mime="text/csv",
+        )
+        md_lines = ["# ORBIT Prescriptions\n"]
+        for p in prescriptions:
+            md_lines.append(f"## [{p.get('priority', '?')}] {p.get('task', 'N/A')}")
+            md_lines.append(p.get("instruction", "") + "\n")
+        ec3.download_button(
+            "Download Markdown", data="\n".join(md_lines),
+            file_name="orbit_prescriptions.md", mime="text/markdown",
+        )
+
+    # --- Coverage Map ---
+    st.subheader("Coverage Map")
+    umap_data = data.get("coverage_umap")
+    cluster_labels = data.get("cluster_labels")
+    if umap_data:
+        umap_arr = np.array(umap_data)
+        umap_df = pd.DataFrame({"x": umap_arr[:, 0], "y": umap_arr[:, 1]})
+        if cluster_labels:
+            umap_df["Region"] = [f"Region {l}" for l in cluster_labels]
+            fig = px.scatter(
+                umap_df, x="x", y="y", color="Region",
+                title="Embedding Space (UMAP Projection)",
+                opacity=0.5,
+                color_discrete_sequence=["#3498db", "#2ecc71", "#e74c3c"],
             )
-            fig.add_vline(
-                x=qual_data["mean"], line_dash="dash", line_color="green",
-                annotation_text=f"Mean: {qual_data['mean']:.3f}",
+        else:
+            fig = px.scatter(umap_df, x="x", y="y", title="Embedding Space (UMAP)", opacity=0.5)
+        fig.update_layout(template="plotly_white", height=450)
+        st.plotly_chart(fig, use_container_width=True)
+
+    # --- Quality Distribution ---
+    st.subheader("Quality Distribution")
+    qual_data = data.get("quality_histogram", {})
+    scores = qual_data.get("scores", [])
+    if scores:
+        fig = px.histogram(
+            x=scores, nbins=20,
+            labels={"x": "Quality Score", "y": "Count"},
+            title="Per-Episode Quality Scores",
+        )
+        fig.add_vline(
+            x=qual_data["mean"], line_dash="dash", line_color="green",
+            annotation_text=f"Mean: {qual_data['mean']:.3f}",
+        )
+        fig.update_layout(template="plotly_white")
+        st.plotly_chart(fig, use_container_width=True)
+
+        qc1, qc2 = st.columns(2)
+        qc1.metric("Mean Quality", f"{qual_data['mean']:.3f}")
+        qc2.metric("Std Dev", f"{qual_data['std']:.3f}")
+
+
+# ---------------------------------------------------------------------------
+# TAB 2: Validated Results
+# ---------------------------------------------------------------------------
+
+
+def _tab_validated_results():
+    st.markdown("#### ORBIT profiler predictions validated against ground-truth performance")
+
+    bench = _load_json("benchmark_results.json")
+    if bench is None:
+        st.error("Benchmark results not found. Expected data/benchmark_results.json.")
+        return
+
+    synthetic = bench.get("synthetic", {})
+    correlations = synthetic.get("correlations", {})
+    data_points = synthetic.get("data_points", [])
+
+    # --- Metrics row ---
+    c1, c2, c3, c4 = st.columns(4)
+    c1.metric("Pearson r", f"{correlations.get('pearson_r', 0):.4f}")
+    c2.metric("Spearman rho", f"{correlations.get('spearman_rho', 0):.4f}")
+    c3.metric("Rank Accuracy", f"{synthetic.get('rank_accuracy', 0):.1%}")
+    c4.metric("Data Points", len(data_points))
+
+    # --- Pass banner ---
+    if synthetic.get("pass", False):
+        st.success("**VALIDATION PASSED** — Profiler predictions correlate strongly with ground-truth task performance.")
+    else:
+        st.warning("Validation did not meet all pass criteria.")
+
+    # --- Correlation scatter ---
+    st.subheader("Predicted vs Ground Truth")
+    if data_points:
+        df = pd.DataFrame(data_points)
+        df["scenario_short"] = df["scenario"].str.replace("_", " ").str.title()
+
+        fig = go.Figure()
+
+        # Reference line y=x
+        fig.add_trace(go.Scatter(
+            x=[0, 1], y=[0, 1], mode="lines",
+            line=dict(color="gray", dash="dash", width=1),
+            name="Perfect prediction", showlegend=True,
+        ))
+
+        # Points by scenario
+        for scenario in df["scenario"].unique():
+            mask = df["scenario"] == scenario
+            subset = df[mask]
+            color = SCENARIO_COLORS.get(scenario, "#999")
+            label = scenario.replace("_", " ").title()
+            fig.add_trace(go.Scatter(
+                x=subset["ground_truth"], y=subset["predicted"],
+                mode="markers", name=label,
+                marker=dict(size=10, color=color, line=dict(width=1, color="white")),
+                hovertemplate=(
+                    "<b>%{customdata[0]}</b><br>"
+                    "Task: %{customdata[1]}<br>"
+                    "Predicted: %{y:.3f}<br>"
+                    "Ground Truth: %{x:.3f}<br>"
+                    "Confidence: %{customdata[2]:.0%}<extra></extra>"
+                ),
+                customdata=subset[["scenario_short", "query", "confidence"]].values,
+            ))
+
+        fig.update_layout(
+            template="plotly_white",
+            xaxis_title="Ground Truth Capability",
+            yaxis_title="ORBIT Predicted Capability",
+            xaxis=dict(range=[-0.05, 1.05]),
+            yaxis=dict(range=[-0.05, 1.05]),
+            height=500,
+            legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="center", x=0.5),
+        )
+        st.plotly_chart(fig, use_container_width=True)
+
+    # --- Benchmark table ---
+    st.subheader("Detailed Results")
+    if data_points:
+        table_df = pd.DataFrame(data_points)
+        table_df["delta"] = table_df["predicted"] - table_df["ground_truth"]
+        table_df["abs_delta"] = table_df["delta"].abs()
+        table_df["status"] = table_df["abs_delta"].apply(
+            lambda d: "🟢" if d < 0.15 else ("🟡" if d < 0.30 else "🔴")
+        )
+        display = table_df[["status", "scenario", "query", "predicted", "ground_truth", "delta", "gap_description"]].copy()
+        display.columns = ["", "Scenario", "Task", "Predicted", "Truth", "Delta", "Gap"]
+        display["Scenario"] = display["Scenario"].str.replace("_", " ").str.title()
+        display["Gap"] = display["Gap"].fillna("-")
+        display["Predicted"] = display["Predicted"].map("{:.3f}".format)
+        display["Truth"] = display["Truth"].map("{:.3f}".format)
+        display["Delta"] = display["Delta"].map("{:+.3f}".format)
+        st.dataframe(display, use_container_width=True, hide_index=True)
+
+    # --- Scenario details ---
+    st.subheader("Scenario Breakdown")
+    scenarios = synthetic.get("scenarios", [])
+    for scenario in scenarios:
+        with st.expander(f"{scenario['name'].replace('_', ' ').title()} — {scenario['description']}"):
+            tasks = scenario.get("tasks", [])
+            if tasks:
+                s_df = pd.DataFrame(tasks)
+                fig = go.Figure()
+                fig.add_trace(go.Bar(
+                    x=s_df["query"], y=s_df["ground_truth"],
+                    name="Ground Truth", marker_color="#3498db",
+                ))
+                fig.add_trace(go.Bar(
+                    x=s_df["query"], y=s_df["predicted"],
+                    name="ORBIT Predicted", marker_color="#e74c3c",
+                ))
+                fig.update_layout(
+                    template="plotly_white", barmode="group",
+                    height=300, margin=dict(t=10),
+                )
+                st.plotly_chart(fig, use_container_width=True)
+
+    # --- Methodology ---
+    with st.expander("Methodology"):
+        st.markdown("""
+**Pass criteria:**
+- Spearman rho > 0.7 (strong rank correlation between predicted and actual)
+- Rank accuracy > 0.7 (correct pairwise ordering in >70% of comparisons)
+- Related tasks consistently score higher than unrelated tasks (p < 0.05)
+
+**What this validates:**
+1. ORBIT correctly ranks which datasets are better for which tasks
+2. Related tasks score higher than unrelated tasks (semantic sensitivity)
+3. Data quality degrades capability scores appropriately
+4. Coverage gaps are reflected in lower predicted capability
+
+**How it works:**
+Synthetic datasets with known properties (varying coverage density, action quality,
+and task relevance) are generated, profiled by ORBIT, and compared against
+ground-truth labels. This isolates the profiler's ability to distinguish dataset
+quality from confounding real-world factors.
+""")
+
+
+# ---------------------------------------------------------------------------
+# TAB 3: Sim-to-Real Transfer
+# ---------------------------------------------------------------------------
+
+
+def _tab_sim2real():
+    st.markdown("#### Analyze transfer readiness between simulation and real datasets")
+
+    sim2real = _load_json("sim2real_demo.json")
+    if sim2real is None:
+        st.error("Sim2Real demo data not found. Expected data/sim2real_demo.json.")
+        return
+
+    pairs = sim2real.get("pairs", {})
+    pair_names = list(pairs.keys())
+    if not pair_names:
+        st.error("No sim2real pairs found.")
+        return
+
+    selected_pair = st.selectbox("Choose a dataset pair", pair_names)
+    pair = pairs[selected_pair]
+
+    # --- Dataset info ---
+    sim_ds = pair["sim_dataset"]
+    real_ds = pair["real_dataset"]
+    ci1, ci2, ci3 = st.columns([2, 2, 2])
+    with ci1:
+        st.markdown(f"**Sim:** {sim_ds['name']}")
+        st.caption(f"{sim_ds['episodes']} episodes, {sim_ds['frames']} frames")
+    with ci2:
+        st.markdown(f"**Real:** {real_ds['name']}")
+        st.caption(f"{real_ds['episodes']} episodes, {real_ds['frames']} frames")
+    with ci3:
+        score = pair["overall_transfer_score"]
+        st.metric(
+            "Overall Transfer Score",
+            f"{score:.2f}",
+            delta=f"{'Good' if score >= 0.7 else 'Needs work' if score >= 0.5 else 'Poor'}",
+            delta_color="normal" if score >= 0.7 else ("off" if score >= 0.5 else "inverse"),
+        )
+
+    st.divider()
+
+    # --- Radar chart ---
+    col_radar, col_tasks = st.columns(2)
+
+    with col_radar:
+        st.markdown("**Transfer Sub-Dimensions**")
+        sub = pair.get("sub_scores", {})
+        categories = list(sub.keys())
+        values = list(sub.values())
+        labels = [c.replace("_", " ").title() for c in categories]
+
+        fig = go.Figure()
+        fig.add_trace(go.Scatterpolar(
+            r=values + [values[0]],
+            theta=labels + [labels[0]],
+            fill="toself",
+            fillcolor="rgba(52, 152, 219, 0.2)",
+            line=dict(color="#3498db", width=2),
+            name="Transfer Score",
+        ))
+        fig.update_layout(
+            polar=dict(
+                radialaxis=dict(visible=True, range=[0, 1]),
+            ),
+            showlegend=False,
+            height=350,
+            margin=dict(l=60, r=60, t=30, b=30),
+        )
+        st.plotly_chart(fig, use_container_width=True)
+
+    # --- Per-task scores ---
+    with col_tasks:
+        st.markdown("**Per-Task Transfer Scores**")
+        per_task = pair.get("per_task_scores", {})
+        if per_task:
+            tasks = list(per_task.keys())
+            scores = [per_task[t]["score"] for t in tasks]
+            colors = [_traffic_light(s) for s in scores]
+
+            fig = go.Figure(go.Bar(
+                x=scores, y=tasks, orientation="h",
+                marker_color=colors,
+                text=[f"{s:.2f}" for s in scores],
+                textposition="outside",
+            ))
+            fig.update_layout(
+                template="plotly_white",
+                xaxis=dict(range=[0, 1.1], title="Transfer Score"),
+                height=350,
+                margin=dict(l=0, r=30, t=10, b=10),
             )
-            fig.update_layout(template="plotly_white")
             st.plotly_chart(fig, use_container_width=True)
 
-            qc1, qc2 = st.columns(2)
-            qc1.metric("Mean Quality", f"{qual_data['mean']:.3f}")
-            qc2.metric("Std Dev", f"{qual_data['std']:.3f}")
+    # --- Gap analysis ---
+    st.subheader("Gap Analysis")
+    gap = pair.get("gap_analysis", {})
 
-            low_q = report.get("quality", {}).get("low_quality_episodes", [])
-            if low_q:
-                st.warning(
-                    f"**{len(low_q)} low-quality episodes detected:** {low_q}\n\n"
-                    "These episodes may hurt policy performance. "
-                    "Consider removing or re-collecting."
-                )
+    st.markdown(f"**Domain Shift Summary:** {gap.get('domain_shift_summary', 'N/A')}")
 
-        # --- Prescriptions ---
-        st.subheader("Prescriptions")
-        prescriptions = data.get("prescription_table", [])
-        if prescriptions:
-            rx_df = pd.DataFrame(prescriptions)
-            display_cols = [
-                c for c in ["priority", "task", "instruction", "estimated_demos",
-                            "current_capability", "target_capability"]
-                if c in rx_df.columns
-            ]
-            st.dataframe(rx_df[display_cols], use_container_width=True, hide_index=True)
-
-            ec1, ec2, ec3 = st.columns(3)
-            ec1.download_button(
-                "Download JSON", data=json.dumps(prescriptions, indent=2),
-                file_name="profiler_prescriptions.json", mime="application/json",
+    biggest_gaps = gap.get("biggest_gaps", [])
+    if biggest_gaps:
+        st.markdown("**Biggest Gaps:**")
+        for g in biggest_gaps:
+            dim = g["dimension"].replace("_", " ").title()
+            st.markdown(
+                f"- {_score_emoji(g['score'])} **{dim}** ({g['score']:.2f}) — {g['description']}"
             )
 
-            csv_buf = io.StringIO()
-            if display_cols:
-                writer = csv.DictWriter(csv_buf, fieldnames=display_cols)
-                writer.writeheader()
-                for p in prescriptions:
-                    writer.writerow({k: p.get(k, "") for k in display_cols})
-            ec2.download_button(
-                "Download CSV", data=csv_buf.getvalue(),
-                file_name="profiler_prescriptions.csv", mime="text/csv",
-            )
+    worst = gap.get("worst_tasks", [])
+    if worst:
+        st.markdown(f"**Tasks needing most work:** {', '.join(worst)}")
 
-            md_lines = ["# Dataset Profiler \u2014 Prescriptions\n"]
-            for p in prescriptions:
-                md_lines.append(f"## [{p.get('priority', '?')}] {p.get('task', 'N/A')}")
-                md_lines.append(p.get("instruction", "") + "\n")
-            ec3.download_button(
-                "Download Markdown", data="\n".join(md_lines),
-                file_name="profiler_prescriptions.md", mime="text/markdown",
-            )
-        else:
-            st.success("No prescriptions \u2014 dataset looks good!")
+    # --- Prescriptions ---
+    prescriptions = pair.get("prescription", [])
+    if prescriptions:
+        st.subheader("What to Collect Next")
+        rx_df = pd.DataFrame(prescriptions)
+        display_cols = ["priority", "task", "action", "estimated_demos", "current_score", "target_score", "weakest_dimension"]
+        display_cols = [c for c in display_cols if c in rx_df.columns]
+        st.dataframe(
+            rx_df[display_cols].rename(columns={
+                "priority": "Priority", "task": "Task", "action": "Action",
+                "estimated_demos": "Demos", "current_score": "Current",
+                "target_score": "Target", "weakest_dimension": "Weakest Area",
+            }),
+            use_container_width=True, hide_index=True,
+        )
 
-        # --- Full Report ---
-        with st.expander("View Full Report (Markdown)"):
-            report_path = Path("./data/demo_report.md")
-            if report_path.exists():
-                st.markdown(report_path.read_text())
-            else:
-                st.info("Report file not found.")
+    # --- Recommendations ---
+    recs = gap.get("recommendations", [])
+    if recs:
+        st.subheader("Recommendations")
+        for r in recs:
+            st.markdown(f"- {r}")
 
-
-# ---------------------------------------------------------------------------
-# PAGE 6: Settings
-# ---------------------------------------------------------------------------
-
-
-def page_settings() -> None:
-    st.header("Settings")
-
-    st.subheader("Detector Thresholds")
-    c1, c2 = st.columns(2)
-    with c1:
-        st.number_input("Stall velocity threshold", value=0.001, format="%.4f", key="stall_velocity_threshold")
-        st.number_input("Stall min frames", value=10, min_value=1, key="stall_min_frames")
-        st.number_input("Gripper closed threshold", value=0.3, format="%.2f", key="gripper_closed_threshold")
-    with c2:
-        st.number_input("Timeout max duration (s)", value=60.0, format="%.1f", key="timeout_max_duration")
-        st.number_input("Timeout max frames", value=1000, min_value=1, key="timeout_max_frames")
-        st.number_input("Min total reward threshold", value=0.0, format="%.2f", key="min_reward_threshold")
-
-    st.subheader("Embedding Model")
-    st.selectbox("Model", ["google/siglip-base-patch16-224 (recommended)", "ViT-B-32 (OpenCLIP)", "ViT-L-14 (OpenCLIP)"], key="embedding_model")
-    st.selectbox("Device", ["cpu", "cuda", "mps"], key="embedding_device")
-
-    st.subheader("Workspace Bounds (Joint Limits)")
-    st.caption("Configure per-joint position limits for the OutOfBoundsDetector.")
-    n_joints = st.number_input("Number of joints", value=6, min_value=1, max_value=12)
-    cols = st.columns(int(n_joints))
-    for j, col in enumerate(cols):
-        with col:
-            st.number_input(f"J{j} lower", value=-3.14, format="%.3f", key=f"joint_{j}_lower")
-            st.number_input(f"J{j} upper", value=3.14, format="%.3f", key=f"joint_{j}_upper")
+    # --- Per-task detail expanders ---
+    if per_task:
+        st.subheader("Per-Task Detail")
+        for task_name, task_data in per_task.items():
+            with st.expander(f"{task_name} — {_verdict(task_data['score'])}"):
+                cols = st.columns(4)
+                cols[0].metric("Embedding Overlap", f"{task_data.get('embedding_overlap', 0):.2f}")
+                cols[1].metric("Visual Gap", f"{task_data.get('visual_gap', 0):.2f}")
+                cols[2].metric("Action Similarity", f"{task_data.get('action_similarity', 0):.2f}")
+                cols[3].metric("Diversity", f"{task_data.get('diversity', 0):.2f}")
 
 
 # ---------------------------------------------------------------------------
@@ -657,18 +725,38 @@ def page_settings() -> None:
 
 
 def _run_app() -> None:
-    st.set_page_config(page_title="ORBIT Demo", page_icon="🛰️", layout="wide", initial_sidebar_state="expanded")
-    render_sidebar()
-    pages = [
-        st.Page(page_session_overview, title="Session Overview"),
-        st.Page(page_distribution_view, title="Distribution View"),
-        st.Page(page_failure_analysis, title="Failure Analysis"),
-        st.Page(page_prescriptions, title="Prescriptions"),
-        st.Page(page_dataset_profiler, title="Dataset Profiler"),
-        st.Page(page_settings, title="Settings"),
-    ]
-    nav = st.navigation(pages)
-    nav.run()
+    st.set_page_config(
+        page_title="ORBIT Demo",
+        page_icon="🛰️",
+        layout="wide",
+        initial_sidebar_state="collapsed",
+    )
+
+    _render_header()
+
+    tab1, tab2, tab3 = st.tabs([
+        "Dataset Readiness",
+        "Validated Results",
+        "Sim-to-Real Transfer",
+    ])
+
+    with tab1:
+        _tab_dataset_readiness()
+    with tab2:
+        _tab_validated_results()
+    with tab3:
+        _tab_sim2real()
+
+    # --- Footer ---
+    st.divider()
+    st.markdown(
+        '<div style="text-align:center;color:#888;font-size:0.85rem;">'
+        'ORBIT v1.2.0 · '
+        '<a href="https://github.com/Rahillasne/Orbit">GitHub</a> · '
+        'Made by Rahil Lasne'
+        '</div>',
+        unsafe_allow_html=True,
+    )
 
 
 if __name__ == "__main__":

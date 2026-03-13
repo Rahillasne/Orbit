@@ -1,4 +1,4 @@
-"""Failure detection subsystem."""
+"""Failure detection subsystem for deployment-time anomaly detection."""
 
 # Phase-2 detectors (preferred)
 from orbit.detector.heuristic import (

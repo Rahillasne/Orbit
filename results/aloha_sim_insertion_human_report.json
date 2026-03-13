@@ -1,0 +1,106 @@
+{
+  "dataset_name": "lerobot_aloha_sim_insertion_human",
+  "num_episodes": 50,
+  "num_frames": 12500,
+  "overall_coverage_score": 0.993,
+  "strengths": [],
+  "gaps": [
+    "precision manipulation",
+    "align peg",
+    "insert peg"
+  ],
+  "capabilities": [
+    {
+      "task": "align peg",
+      "score": 0.195,
+      "confidence": 0.008,
+      "supporting_episodes": 10,
+      "verdict": "No Coverage",
+      "gap_description": "Relevant frames found but concentrated in few episodes \u2014 collect more diverse demonstrations.",
+      "score_breakdown": {
+        "visual_relevance": 0.257,
+        "data_quality": 0.76,
+        "coverage_diversity": 0.019,
+        "volume": 0.2
+      }
+    },
+    {
+      "task": "insert peg",
+      "score": 0.084,
+      "confidence": 0.006,
+      "supporting_episodes": 8,
+      "verdict": "No Coverage",
+      "gap_description": "Relevant frames found but concentrated in few episodes \u2014 collect more diverse demonstrations.",
+      "score_breakdown": {
+        "visual_relevance": 0.126,
+        "data_quality": 0.776,
+        "coverage_diversity": 0.015,
+        "volume": 0.16
+      }
+    },
+    {
+      "task": "precision manipulation",
+      "score": 0.497,
+      "confidence": 0.004,
+      "supporting_episodes": 5,
+      "verdict": "Weak",
+      "gap_description": "Relevant frames found but concentrated in few episodes \u2014 collect more diverse demonstrations.",
+      "score_breakdown": {
+        "visual_relevance": 0.617,
+        "data_quality": 0.771,
+        "coverage_diversity": 0.009,
+        "volume": 0.1
+      }
+    }
+  ],
+  "quality": {
+    "aggregate_score": 0.766,
+    "mutual_information": 6.728,
+    "low_quality_episodes": [
+      19
+    ],
+    "num_episodes_scored": 50,
+    "signal_breakdown": {
+      "mutual_information": 0.51,
+      "action_smoothness": 0.997,
+      "episode_completion": 0.993,
+      "observation_consistency": 0.718,
+      "demonstration_quality": 0.717
+    }
+  },
+  "coverage": {
+    "num_dense_regions": 292,
+    "num_sparse_regions": 291,
+    "overall_score": 0.993
+  },
+  "prescriptions": [
+    {
+      "priority": 1,
+      "task": "insert peg",
+      "instruction": "Collect 27 demonstrations of 'insert peg'. Focus on: Relevant frames found but concentrated in few episodes \u2014 collect more diverse demonstrations.",
+      "estimated_demos": 27,
+      "gap_description": "Relevant frames found but concentrated in few episodes \u2014 collect more diverse demonstrations.",
+      "current_capability": 0.084,
+      "target_capability": 0.384
+    },
+    {
+      "priority": 2,
+      "task": "align peg",
+      "instruction": "Collect 24 demonstrations of 'align peg'. Focus on: Relevant frames found but concentrated in few episodes \u2014 collect more diverse demonstrations.",
+      "estimated_demos": 24,
+      "gap_description": "Relevant frames found but concentrated in few episodes \u2014 collect more diverse demonstrations.",
+      "current_capability": 0.195,
+      "target_capability": 0.495
+    },
+    {
+      "priority": 3,
+      "task": "precision manipulation",
+      "instruction": "Collect 15 demonstrations of 'precision manipulation'. Focus on: Relevant frames found but concentrated in few episodes \u2014 collect more diverse demonstrations.",
+      "estimated_demos": 15,
+      "gap_description": "Relevant frames found but concentrated in few episodes \u2014 collect more diverse demonstrations.",
+      "current_capability": 0.497,
+      "target_capability": 0.797
+    }
+  ],
+  "timestamp": "2026-03-09T20:29:36.879457"
+}

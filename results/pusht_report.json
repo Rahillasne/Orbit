@@ -1,0 +1,75 @@
+{
+  "dataset_name": "lerobot_pusht",
+  "num_episodes": 50,
+  "num_frames": 3131,
+  "overall_coverage_score": 0.976,
+  "strengths": [
+    "push block to target"
+  ],
+  "gaps": [
+    "precise positioning"
+  ],
+  "capabilities": [
+    {
+      "task": "push block to target",
+      "score": 0.531,
+      "confidence": 0.07,
+      "supporting_episodes": 22,
+      "verdict": "Adequate",
+      "gap_description": null,
+      "score_breakdown": {
+        "visual_relevance": 0.535,
+        "data_quality": 0.785,
+        "coverage_diversity": 0.125,
+        "volume": 0.44
+      }
+    },
+    {
+      "task": "precise positioning",
+      "score": 0.472,
+      "confidence": 0.08,
+      "supporting_episodes": 25,
+      "verdict": "Weak",
+      "gap_description": "Relevant frames found but concentrated in few episodes \u2014 collect more diverse demonstrations.",
+      "score_breakdown": {
+        "visual_relevance": 0.465,
+        "data_quality": 0.763,
+        "coverage_diversity": 0.143,
+        "volume": 0.5
+      }
+    }
+  ],
+  "quality": {
+    "aggregate_score": 0.771,
+    "mutual_information": 3.675,
+    "low_quality_episodes": [
+      15,
+      40
+    ],
+    "num_episodes_scored": 50,
+    "signal_breakdown": {
+      "mutual_information": 0.693,
+      "action_smoothness": 0.938,
+      "episode_completion": 0.773,
+      "observation_consistency": 0.961,
+      "demonstration_quality": 0.456
+    }
+  },
+  "coverage": {
+    "num_dense_regions": 84,
+    "num_sparse_regions": 84,
+    "overall_score": 0.976
+  },
+  "prescriptions": [
+    {
+      "priority": 1,
+      "task": "precise positioning",
+      "instruction": "Collect 15 demonstrations of 'precise positioning'. Focus on: Relevant frames found but concentrated in few episodes \u2014 collect more diverse demonstrations.",
+      "estimated_demos": 15,
+      "gap_description": "Relevant frames found but concentrated in few episodes \u2014 collect more diverse demonstrations.",
+      "current_capability": 0.472,
+      "target_capability": 0.772
+    }
+  ],
+  "timestamp": "2026-03-09T19:55:07.801088"
+}

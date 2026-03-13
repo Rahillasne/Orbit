@@ -41,10 +41,15 @@ class EmbeddingAnalyzer:
       6. Generate UMAP + Plotly visualizations
     """
 
-    def __init__(self, config: EmbeddingAnalyzerConfig | None = None) -> None:
+    def __init__(
+        self,
+        config: EmbeddingAnalyzerConfig | None = None,
+        extractor=None,
+    ) -> None:
         self.config = config or EmbeddingAnalyzerConfig()
         self._model = None
         self._processor = None
+        self._external_extractor = extractor  # Optional ImageEmbedder protocol
         self._faiss_index = None  # faiss.IndexFlatIP, lazily imported
         self._training_embeddings: np.ndarray | None = None
         self._umap_reducer = None
@@ -65,24 +70,37 @@ class EmbeddingAnalyzer:
 
         import torch  # noqa: F811
 
-        if self.config.device != "cpu" and torch.cuda.is_available():
-            self._model = self._model.to(self.config.device)
-        elif self.config.device != "cpu":
-            logger.warning(
-                "Requested device %s not available, falling back to CPU",
-                self.config.device,
+        if self.config.device != "cpu":
+            device_available = torch.cuda.is_available() or (
+                self.config.device == "mps"
+                and hasattr(torch.backends, "mps")
+                and torch.backends.mps.is_available()
             )
-            self.config.device = "cpu"
+            if device_available:
+                self._model = self._model.to(self.config.device)
+            else:
+                logger.warning(
+                    "Requested device %s not available, falling back to CPU",
+                    self.config.device,
+                )
+                self.config.device = "cpu"
 
     # ------------------------------------------------------------------
     # Embedding computation
     # ------------------------------------------------------------------
 
     def embed_images(self, images: list[Image.Image]) -> np.ndarray:
-        """Compute SigLIP embeddings for images in batches.
+        """Compute embeddings for images in batches.
+
+        When an external ``extractor`` was provided at init time, delegates
+        to it.  Otherwise uses the built-in SigLIP model.
 
         Returns ``(N, D)`` float32 array with L2-normalized embeddings.
         """
+        # Delegate to external extractor if provided
+        if self._external_extractor is not None:
+            return self._external_extractor.embed_images(images)
+
         self._load_model()
         import torch
 

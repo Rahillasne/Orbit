@@ -31,7 +31,7 @@ def _make_random_episode(episode_id: int, T: int = 100, state_dim: int = 4, seed
 
 
 # ---------------------------------------------------------------------------
-# Tests
+# Tests — existing MI-based quality
 # ---------------------------------------------------------------------------
 
 
@@ -118,3 +118,160 @@ class TestQualityEstimator:
 
         assert 0 in result.episode_scores
         assert 1 in result.episode_scores
+
+
+# ---------------------------------------------------------------------------
+# Tests — new quality signals
+# ---------------------------------------------------------------------------
+
+
+class TestActionSmoothness:
+    def test_smooth_vs_jerky(self):
+        """Smooth sinusoidal actions should score higher than random jerk."""
+        est = QualityEstimator()
+
+        # Smooth: sinusoidal trajectory
+        t = np.linspace(0, 2 * np.pi, 200)
+        smooth_actions = np.column_stack([np.sin(t), np.cos(t), np.sin(2 * t), np.cos(2 * t)])
+        smooth_score = est._action_smoothness(smooth_actions)
+
+        # Jerky: random independent samples
+        rng = np.random.default_rng(42)
+        jerky_actions = rng.standard_normal((200, 4))
+        jerky_score = est._action_smoothness(jerky_actions)
+
+        assert smooth_score > jerky_score, (
+            f"Smooth ({smooth_score:.3f}) should be > jerky ({jerky_score:.3f})"
+        )
+        assert 0.0 <= smooth_score <= 1.0
+        assert 0.0 <= jerky_score <= 1.0
+
+    def test_short_trajectory(self):
+        """Trajectory with < 4 steps returns default 0.5."""
+        est = QualityEstimator()
+        actions = np.array([[1, 2], [3, 4], [5, 6]])
+        assert est._action_smoothness(actions) == 0.5
+
+
+class TestEpisodeCompletion:
+    def test_converging_vs_diverging(self):
+        """Converging states should score higher than diverging ones."""
+        est = QualityEstimator()
+
+        # Converging: state variance decreases over time
+        rng = np.random.default_rng(42)
+        T = 100
+        converging = np.zeros((T, 4))
+        for i in range(T):
+            scale = 1.0 - 0.9 * (i / T)  # shrinks over time
+            converging[i] = rng.standard_normal(4) * scale
+        conv_score = est._episode_completion(converging)
+
+        # Diverging: state variance increases over time
+        diverging = np.zeros((T, 4))
+        for i in range(T):
+            scale = 0.1 + 2.0 * (i / T)  # grows over time
+            diverging[i] = rng.standard_normal(4) * scale
+        div_score = est._episode_completion(diverging)
+
+        assert conv_score > div_score, (
+            f"Converging ({conv_score:.3f}) should be > diverging ({div_score:.3f})"
+        )
+
+    def test_short_trajectory(self):
+        """Short trajectory (< 10 steps) returns default 0.5."""
+        est = QualityEstimator()
+        states = np.random.randn(5, 4)
+        assert est._episode_completion(states) == 0.5
+
+
+class TestObservationConsistency:
+    def test_clean_vs_corrupted(self):
+        """Clean data should score higher than data with NaN injected."""
+        est = QualityEstimator()
+
+        rng = np.random.default_rng(42)
+        clean = rng.standard_normal((100, 4))
+        clean_score = est._observation_consistency(clean)
+
+        corrupted = clean.copy()
+        corrupted[10] = np.nan  # inject NaN
+        corrupted[50] = np.inf  # inject inf
+        corrupted_score = est._observation_consistency(corrupted)
+
+        assert clean_score > corrupted_score, (
+            f"Clean ({clean_score:.3f}) should be > corrupted ({corrupted_score:.3f})"
+        )
+        assert clean_score <= 1.0
+
+    def test_sudden_jumps(self):
+        """States with sudden jumps should score lower."""
+        est = QualityEstimator()
+
+        rng = np.random.default_rng(42)
+        smooth = rng.standard_normal((100, 4)) * 0.01
+        smooth_score = est._observation_consistency(smooth)
+
+        # Insert large jumps
+        with_jumps = smooth.copy()
+        with_jumps[30] = [100, 100, 100, 100]
+        with_jumps[60] = [-100, -100, -100, -100]
+        jump_score = est._observation_consistency(with_jumps)
+
+        assert smooth_score >= jump_score
+
+
+class TestDemonstrationQuality:
+    def test_expert_vs_random(self):
+        """Moderate-variance consistent actions should beat high-variance random."""
+        est = QualityEstimator()
+
+        rng = np.random.default_rng(42)
+
+        # Expert-like: moderate, consistent variance across dimensions
+        expert = rng.standard_normal((200, 4)) * 0.5
+        expert_score = est._demonstration_quality(expert)
+
+        # Random/noisy: very high variance
+        noisy = rng.standard_normal((200, 4)) * 100.0
+        noisy_score = est._demonstration_quality(noisy)
+
+        assert expert_score > noisy_score, (
+            f"Expert ({expert_score:.3f}) should be > noisy ({noisy_score:.3f})"
+        )
+
+    def test_constant_actions(self):
+        """Constant actions (degenerate) should score very low."""
+        est = QualityEstimator()
+        constant = np.ones((100, 4)) * 0.5
+        score = est._demonstration_quality(constant)
+        assert score <= 0.2, f"Constant actions should score very low, got {score:.3f}"
+
+
+class TestQualitySignalBreakdown:
+    def test_breakdown_populated(self):
+        """Signal breakdown should be populated with all values in [0, 1]."""
+        eps = [_make_deterministic_episode(i, T=100, seed=i) for i in range(3)]
+        est = QualityEstimator(k_neighbors=5)
+        result = est.estimate_quality(eps)
+
+        assert result.signal_breakdown is not None
+        sb = result.signal_breakdown
+        for field_name in [
+            "mutual_information",
+            "action_smoothness",
+            "episode_completion",
+            "observation_consistency",
+            "demonstration_quality",
+        ]:
+            val = getattr(sb, field_name)
+            assert 0.0 <= val <= 1.0, f"{field_name} = {val} not in [0, 1]"
+
+    def test_backward_compat_aggregate_score(self):
+        """Aggregate score should still work and be in [0, 1]."""
+        eps = [_make_deterministic_episode(i, T=100, seed=i) for i in range(3)]
+        est = QualityEstimator(k_neighbors=5)
+        result = est.estimate_quality(eps)
+
+        assert 0.0 <= result.aggregate_score <= 1.0
+        assert len(result.episode_scores) == 3

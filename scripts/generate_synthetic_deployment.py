@@ -13,7 +13,6 @@ Usage:
 from __future__ import annotations
 
 import argparse
-import time
 
 import numpy as np
 from PIL import Image
@@ -188,8 +187,8 @@ def main() -> None:
     args = parser.parse_args()
 
     print(f"Generating synthetic deployment in {args.output_dir}...")
-    session_id = generate_deployment(args.output_dir)
-    print(f"\nDone! Launch the dashboard with:")
+    generate_deployment(args.output_dir)
+    print("\nDone! Launch the dashboard with:")
     print(f"  orbit dashboard --data-dir {args.output_dir}")
 
 

@@ -1,0 +1,5 @@
+Dataset,Episodes,Frames,Coverage,Quality,Top Capabilities,Gaps Found,Time (s)
+pusht,50,3131,0.976,0.771,push block to target (0.53),precise positioning (0.47),211.9
+aloha_sim_transfer_cube_human,50,10000,0.989,0.693,bimanual handover (0.61),"pick up cube (0.00), place cube (0.02)",1036.5
+xarm_lift_medium_replay,50,650,0.968,0.507,grasp object (0.64),"lift object (0.04), stable hold (0.40)",36.5
+aloha_sim_insertion_human,50,12500,0.993,0.766,None,"align peg (0.20), insert peg (0.08), precision manipulation (0.50)",930.7

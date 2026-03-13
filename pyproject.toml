@@ -4,16 +4,16 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "orbit-robotics"
-version = "1.1.0"
-description = "Deployment diagnostics for learned robot policies"
+version = "1.2.0"
+description = "Analyze robot datasets to predict task capability, identify distribution gaps, and prescribe what data to collect next."
 readme = "README.md"
 license = {text = "Apache-2.0"}
 requires-python = ">=3.10,<3.13"
 authors = [
     {name = "Rahil Lasne"},
 ]
-keywords = ["robotics", "deployment", "diagnostics", "lerobot",
-            "imitation-learning", "VLA"]
+keywords = ["sim-to-real", "dataset-analysis", "robot-learning", "data-quality",
+            "distribution-gap", "LeRobot", "policy-transfer"]
 classifiers = [
     "Development Status :: 4 - Beta",
     "Intended Audience :: Science/Research",
@@ -65,19 +65,33 @@ dashboard = [
 lerobot = [
     "lerobot>=0.4.0",
 ]
+gpu = [
+    "lerobot>=0.4.0",
+    "torch>=2.0.0",
+]
 loader = [
     "huggingface_hub>=0.20.0",
     "pandas>=2.0.0",
     "opencv-python>=4.8.0",
 ]
+r3m = [
+    "r3m",
+    "torch>=2.0.0",
+    "torchvision>=0.15.0",
+]
+voltron = [
+    "voltron-robotics",
+    "torch>=2.0.0",
+]
 full = [
-    "orbit-robotics[profile,detection,vlm,dashboard,lerobot]",
+    "orbit-robotics[profile,detection,vlm,dashboard,lerobot,r3m]",
 ]
 dev = [
     "pytest>=7.4.0",
     "pytest-cov>=4.1.0",
     "pytest-timeout>=2.2.0",
     "ruff>=0.1.0",
+    "modal>=0.64.0",
 ]
 
 [project.urls]

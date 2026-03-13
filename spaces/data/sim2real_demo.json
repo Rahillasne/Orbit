@@ -1,0 +1,75 @@
+{
+  "pairs": {
+    "ALOHA Sim Transfer \u2192 ALOHA Sim Insertion": {
+      "sim_dataset": {
+        "name": "ALOHA Sim Transfer Cube",
+        "repo_id": "lerobot/aloha_sim_transfer_cube_human",
+        "episodes": 50,
+        "frames": 10000
+      },
+      "real_dataset": {
+        "name": "ALOHA Sim Insertion",
+        "repo_id": "lerobot/aloha_sim_insertion_human",
+        "episodes": 50,
+        "frames": 12500
+      },
+      "overall_transfer_score": 0.3859,
+      "sub_scores": {
+        "embedding_overlap": 0.0,
+        "visual_domain_similarity": 0.0,
+        "action_similarity": 0.7674,
+        "diversity": 0.9889
+      },
+      "per_task_scores": {
+        "bimanual manipulation": {
+          "score": 0.4764,
+          "embedding_overlap": 0.0,
+          "visual_gap": 0.0,
+          "action_similarity": 0.7674,
+          "diversity": 0.9889,
+          "sim_capability": 0.6145
+        },
+        "object transfer": {
+          "score": 0.2953,
+          "embedding_overlap": 0.0,
+          "visual_gap": 0.0,
+          "action_similarity": 0.7674,
+          "diversity": 0.9889,
+          "sim_capability": 0.0006
+        }
+      },
+      "gap_analysis": {
+        "biggest_gaps": [
+          {"dimension": "embedding_overlap", "score": 0.0, "description": "No visual embedding overlap between sim transfer and sim insertion datasets"}
+        ],
+        "domain_shift_summary": "Overall domain shift is low. Embedding overlap is 0%. The two ALOHA sim environments have distinct visual features despite similar robot morphology.",
+        "worst_tasks": ["object transfer", "bimanual manipulation"],
+        "recommendations": [
+          "Collect more real-world data in environments that match sim scenarios to increase embedding overlap.",
+          "Add visual domain randomization to bridge the embedding gap between transfer and insertion environments",
+          "Focus data collection on shared manipulation primitives (grasp, place, handover)"
+        ]
+      },
+      "prescription": [
+        {
+          "priority": 1,
+          "task": "object transfer",
+          "action": "Collect real demonstrations in visually similar setups to bridge the embedding gap.",
+          "estimated_demos": 35,
+          "current_score": 0.2953,
+          "target_score": 0.5953,
+          "weakest_dimension": "embedding_overlap"
+        },
+        {
+          "priority": 2,
+          "task": "bimanual manipulation",
+          "action": "Collect real demonstrations in visually similar setups to bridge the embedding gap.",
+          "estimated_demos": 26,
+          "current_score": 0.4764,
+          "target_score": 0.7764,
+          "weakest_dimension": "embedding_overlap"
+        }
+      ]
+    }
+  }
+}
