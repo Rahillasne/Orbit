@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import numpy as np
-import pytest
 
 from orbit.profile.predictor_v2 import DatasetQualityModelV2, Prediction
 
@@ -119,7 +118,8 @@ class TestDatasetQualityModelV2:
         assert len(loaded.bootstrap_models) == 50
         assert loaded.training_features is not None
         assert loaded.validation_results is not None
-        assert loaded.validation_results.get("version", loaded.validation_results.get("n_samples")) is not None
+        vr = loaded.validation_results
+        assert vr.get("version", vr.get("n_samples")) is not None
 
     def test_pca_reduces_dimensions(self):
         """PCA should reduce from 64 to <= 15 components when enabled."""

@@ -15,6 +15,8 @@ from typing import TYPE_CHECKING
 
 import numpy as np
 from PIL import Image
+from tqdm import tqdm
+
 if TYPE_CHECKING:
     pass
 
@@ -53,7 +55,10 @@ class R3MEmbeddingExtractor:
             from orbit.embeddings.r3m_manual import R3MManualExtractor
 
             self._extractor = R3MManualExtractor(device=self.device)
-            logger.info("Loaded R3M extractor (manual weight loading) on %s", self._extractor.device)
+            logger.info(
+                "Loaded R3M extractor (manual weight loading) on %s",
+                self._extractor.device,
+            )
         except ImportError as exc:
             raise ImportError(
                 "torch and torchvision are required for R3M embeddings. "

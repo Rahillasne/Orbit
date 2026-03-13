@@ -159,7 +159,10 @@ class ValidationReport:
             c = self.correlation
             sig_spearman = "significant" if c.spearman_p < 0.05 else "not significant"
             sig_pearson = "significant" if c.pearson_p < 0.05 else "not significant"
-            lines.append(f"- **Spearman rho**: {c.spearman_rho:.4f} (p={c.spearman_p:.4f}, {sig_spearman})")
+            lines.append(
+                f"- **Spearman rho**: {c.spearman_rho:.4f}"
+                f" (p={c.spearman_p:.4f}, {sig_spearman})"
+            )
             lines.append(f"- **Pearson r**: {c.pearson_r:.4f} (p={c.pearson_p:.4f}, {sig_pearson})")
             lines.append(f"- **Rank accuracy**: {c.rank_accuracy:.4f}")
         if self.bootstrap_spearman:
@@ -266,7 +269,9 @@ class BenchmarkValidator:
         bootstrap_iterations: int = _BOOTSTRAP_ITERATIONS,
         bootstrap_ci: float = _BOOTSTRAP_CI,
     ) -> None:
-        self._ground_truth_path = Path(ground_truth_path) if ground_truth_path else _GROUND_TRUTH_PATH
+        self._ground_truth_path = (
+            Path(ground_truth_path) if ground_truth_path else _GROUND_TRUTH_PATH
+        )
         self._cache_dir = Path(cache_dir) if cache_dir else _DEFAULT_CACHE_DIR
         self._max_episodes = max_episodes
         self._embedding_model = embedding_model
@@ -474,7 +479,10 @@ class BenchmarkValidator:
 
     def _compute_correlations(self, results: list[BenchmarkResult]) -> CorrelationResult | None:
         if len(results) < 3:
-            logger.warning("Need at least 3 successful results for correlation; got %d", len(results))
+            logger.warning(
+                "Need at least 3 successful results for correlation; got %d",
+                len(results),
+            )
             return None
 
         from scipy import stats
@@ -585,17 +593,28 @@ def _cli_main() -> None:
     import click
 
     @click.command()
-    @click.option("--cache-dir", default=None, type=click.Path(), help="Cache directory for profiles.")
-    @click.option("--output", "-o", default=None, type=click.Path(), help="Output file path.")
     @click.option(
-        "--format",
-        "fmt",
+        "--cache-dir", default=None, type=click.Path(),
+        help="Cache directory for profiles.",
+    )
+    @click.option(
+        "--output", "-o", default=None, type=click.Path(),
+        help="Output file path.",
+    )
+    @click.option(
+        "--format", "fmt",
         type=click.Choice(["markdown", "json"]),
         default="markdown",
         help="Report format.",
     )
-    @click.option("--max-episodes", default=None, type=int, help="Override max episodes per dataset.")
-    @click.option("--dataset", multiple=True, help="Specific dataset IDs to validate (default: all).")
+    @click.option(
+        "--max-episodes", default=None, type=int,
+        help="Override max episodes per dataset.",
+    )
+    @click.option(
+        "--dataset", multiple=True,
+        help="Specific dataset IDs to validate (default: all).",
+    )
     @click.option("--force", is_flag=True, help="Ignore cached scores and re-profile.")
     @click.option("--device", default="cpu", help="Torch device (cpu or cuda).")
     @click.option("--verbose", "-v", is_flag=True, help="Enable verbose logging.")

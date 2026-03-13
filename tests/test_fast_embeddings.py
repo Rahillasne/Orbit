@@ -9,7 +9,6 @@ from PIL import Image
 
 from orbit.embeddings.fast_embeddings import FAST_EMBED_DIM, FastEmbeddingExtractor
 
-
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------

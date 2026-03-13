@@ -279,8 +279,9 @@ class EmbeddingExtractor:
 
         *max_images* caps the total number of images loaded to prevent OOM.
         """
-        import h5py
         import os
+
+        import h5py
 
         all_images: list[Image.Image] = []
         episode_ids: list[int] = []

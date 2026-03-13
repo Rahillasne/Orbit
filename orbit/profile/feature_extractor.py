@@ -350,16 +350,13 @@ class DatasetFeatureExtractor:
         diversity_str = estimated_features.get("diversity_estimate", "medium")
         quality_str = estimated_features.get("quality_estimate", "medium")
         complexity_str = estimated_features.get("task_complexity", "medium")
-        num_objects = estimated_features.get("num_objects", 1)
         bimanual = estimated_features.get("bimanual", False)
         demo_type = estimated_features.get("demo_type", "proficient_human")
-        horizon_str = estimated_features.get("horizon_length", "medium")
         obs_type = estimated_features.get("observation_type", "image")
 
         diversity_val = _QUALITY_MAP.get(diversity_str, 0.5)
         quality_val = _QUALITY_MAP.get(quality_str, 0.5)
         complexity_val = _COMPLEXITY_MAP.get(complexity_str, 0.5)
-        horizon_val = _HORIZON_MAP.get(horizon_str, 0.6)
         demo_quality = _DEMO_TYPE_MAP.get(demo_type, 0.5)
 
         img_pixels = 0.0
@@ -668,7 +665,6 @@ class DatasetFeatureExtractor:
                 unique_eps = np.unique(ep_arr)
 
                 autocorrs: list[float] = []
-                cum_coverage: list[float] = []
                 seen_centroids: list[np.ndarray] = []
 
                 for eid in unique_eps:

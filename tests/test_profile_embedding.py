@@ -88,7 +88,8 @@ class TestEmbeddingExtractor:
             paths.append(str(p))
 
         embeddings = extractor.extract_from_images(paths)
-        assert embeddings.shape == (10, 768)
+        assert embeddings.shape[0] == 10
+        assert embeddings.shape[1] in (512, 768)  # 768 SigLIP, 512 fast/OpenCLIP
         norms = np.linalg.norm(embeddings, axis=1)
         assert np.allclose(norms, 1.0, atol=1e-5)
 

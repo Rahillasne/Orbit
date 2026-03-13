@@ -296,8 +296,10 @@ class Sim2RealProfiler:
 
         # Worst-performing tasks
         worst_tasks = sorted(per_task_scores.items(), key=lambda x: x[1]["score"])[:3]
+        vg = sub_scores["visual_gap"]
+        shift_level = "high" if vg > 0.5 else "moderate" if vg > 0.3 else "low"
         domain_shift = (
-            f"Overall domain shift is {'high' if sub_scores['visual_gap'] > 0.5 else 'moderate' if sub_scores['visual_gap'] > 0.3 else 'low'}. "
+            f"Overall domain shift is {shift_level}. "
             f"Embedding overlap is {sub_scores['embedding_overlap']:.0%}."
         )
 
@@ -333,10 +335,22 @@ class Sim2RealProfiler:
             weakest_dim = min(sub_dims, key=sub_dims.get)  # type: ignore[arg-type]
 
             rationale_map = {
-                "embedding_overlap": "Collect real demonstrations in visually similar setups to bridge the embedding gap.",
-                "visual_domain_similarity": "Add domain randomization in sim or collect real data with diverse visual conditions.",
-                "action_similarity": "Calibrate sim actuator models or collect real teleoperation data to align action distributions.",
-                "diversity": "Increase sim coverage with more varied initial conditions and object configurations.",
+                "embedding_overlap": (
+                    "Collect real demonstrations in visually similar"
+                    " setups to bridge the embedding gap."
+                ),
+                "visual_domain_similarity": (
+                    "Add domain randomization in sim or collect real"
+                    " data with diverse visual conditions."
+                ),
+                "action_similarity": (
+                    "Calibrate sim actuator models or collect real"
+                    " teleoperation data to align action distributions."
+                ),
+                "diversity": (
+                    "Increase sim coverage with more varied initial"
+                    " conditions and object configurations."
+                ),
             }
 
             prescriptions.append(

@@ -14,9 +14,8 @@ Key design decisions:
 from __future__ import annotations
 
 import logging
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from pathlib import Path
-from typing import Optional
 
 import numpy as np
 
@@ -45,7 +44,7 @@ class Prediction:
     confidence_level: str  # "high", "medium", "low"
     calibrated: bool
     nearest_training_distance: float
-    warning: Optional[str] = None
+    warning: str | None = None
 
 
 class _AveragingEnsemble:
@@ -155,17 +154,9 @@ class DatasetQualityModelV2:
             List of ``"profiled"`` or ``"estimated"`` per sample.
             If provided, trains ONLY on profiled samples when enough exist.
         """
-        from scipy import stats
         from sklearn.decomposition import PCA
-        from sklearn.ensemble import (
-            GradientBoostingRegressor,
-            RandomForestRegressor,
-            StackingRegressor,
-        )
         from sklearn.isotonic import IsotonicRegression
-        from sklearn.linear_model import ElasticNet, Ridge
         from sklearn.preprocessing import StandardScaler
-        from sklearn.svm import SVR
 
         # ===== Step 1: Filter to real data only =====
         weights = None
@@ -521,7 +512,7 @@ class DatasetQualityModelV2:
                 f"{self.pca.explained_variance_ratio_.sum() * 100:.1f}%"
             )
         else:
-            print(f"  PCA:                  disabled")
+            print("  PCA:                  disabled")
         print()
         print("  CROSS-VALIDATED METRICS (unbiased):")
         print(f"  {'─' * 40}")
