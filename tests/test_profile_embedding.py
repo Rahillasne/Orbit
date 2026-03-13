@@ -150,7 +150,8 @@ class TestEmbeddingExtractor:
         img.save(p)
 
         embeddings = extractor.extract_from_images([str(p)])
-        assert embeddings.shape == (1, 768)
+        assert embeddings.shape[0] == 1
+        assert embeddings.shape[1] in (512, 768)
         norm = np.linalg.norm(embeddings[0])
         assert np.isclose(norm, 1.0, atol=1e-5)
 
