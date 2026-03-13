@@ -112,9 +112,9 @@ class FastEmbeddingExtractor:
         if self._random_proj is None:
             rng = np.random.default_rng(42)
             input_dim = flat_arr.shape[1]
-            self._random_proj = rng.standard_normal((input_dim, dim)).astype(
-                np.float32
-            ) / np.sqrt(dim)
+            self._random_proj = rng.standard_normal((input_dim, dim)).astype(np.float32) / np.sqrt(
+                dim
+            )
 
         projected = flat_arr @ self._random_proj
         norms = np.linalg.norm(projected, axis=1, keepdims=True)

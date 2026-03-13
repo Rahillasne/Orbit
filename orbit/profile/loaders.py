@@ -498,7 +498,8 @@ class DatasetLoader:
                         cap.release()
                         logger.info(
                             "Extracted %d/%d frames as arrays via OpenCV",
-                            len(result), len(needed),
+                            len(result),
+                            len(needed),
                         )
                         return result
 
@@ -507,7 +508,8 @@ class DatasetLoader:
 
             logger.info(
                 "Extracted %d/%d frames as arrays via OpenCV",
-                len(result), len(needed),
+                len(result),
+                len(needed),
             )
             if result:
                 return result
@@ -525,8 +527,13 @@ class DatasetLoader:
             try:
                 pattern = str(tmp_dir / "frame_%06d.png")
                 cmd = [
-                    "ffmpeg", "-i", str(vpath), pattern,
-                    "-y", "-loglevel", "error",
+                    "ffmpeg",
+                    "-i",
+                    str(vpath),
+                    pattern,
+                    "-y",
+                    "-loglevel",
+                    "error",
                 ]
                 subprocess.run(cmd, check=True, capture_output=True, timeout=600)
                 # ffmpeg names frames 1-based

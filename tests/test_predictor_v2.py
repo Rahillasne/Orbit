@@ -15,8 +15,11 @@ def _make_synthetic_data(n: int = 50, seed: int = 42):
     X = rng.random((n, FEATURE_DIM)).astype(np.float32)
     # Success rate = noisy linear combination of first 5 features
     y = np.clip(
-        0.3 * X[:, 0] + 0.25 * X[:, 1] + 0.2 * X[:, 2]
-        + 0.15 * X[:, 3] + 0.1 * X[:, 4]
+        0.3 * X[:, 0]
+        + 0.25 * X[:, 1]
+        + 0.2 * X[:, 2]
+        + 0.15 * X[:, 3]
+        + 0.1 * X[:, 4]
         + rng.normal(0, 0.08, n),
         0,
         1,
@@ -174,14 +177,10 @@ class TestDatasetQualityModelV2:
 
         for i in range(len(preds)):
             for j in range(i + 1, len(preds)):
-                Xi = model.select_features(X[i:i+1])
-                Xj = model.select_features(X[j:j+1])
-                raw_i = float(np.clip(model.model.predict(
-                    _transform(Xi)
-                )[0], 0, 1))
-                raw_j = float(np.clip(model.model.predict(
-                    _transform(Xj)
-                )[0], 0, 1))
+                Xi = model.select_features(X[i : i + 1])
+                Xj = model.select_features(X[j : j + 1])
+                raw_i = float(np.clip(model.model.predict(_transform(Xi))[0], 0, 1))
+                raw_j = float(np.clip(model.model.predict(_transform(Xj))[0], 0, 1))
                 if abs(raw_i - raw_j) > 0.1:
                     # Isotonic is monotone, so if raw_i > raw_j, calibrated_i >= calibrated_j
                     if raw_i > raw_j:
@@ -196,9 +195,9 @@ class TestDatasetQualityModelV2:
         X = rng.random((n, FEATURE_DIM)).astype(np.float32)
         # Strong signal with low noise
         y = np.clip(
-            0.5 * X[:, 0] + 0.3 * X[:, 1] + 0.2 * X[:, 2]
-            + rng.normal(0, 0.05, n),
-            0, 1,
+            0.5 * X[:, 0] + 0.3 * X[:, 1] + 0.2 * X[:, 2] + rng.normal(0, 0.05, n),
+            0,
+            1,
         ).astype(np.float32)
         model = DatasetQualityModelV2()
         model.fit(X, y)
@@ -215,9 +214,7 @@ class TestDatasetQualityModelV2:
         features_transformed = model.scaler.transform(X_selected)
         if model.pca is not None:
             features_transformed = model.pca.transform(features_transformed)
-        boot_preds = [
-            float(bm.predict(features_transformed)[0]) for bm in model.bootstrap_models
-        ]
+        boot_preds = [float(bm.predict(features_transformed)[0]) for bm in model.bootstrap_models]
         assert np.std(boot_preds) > 0
 
     def test_handles_nan_inf_features(self):

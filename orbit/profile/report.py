@@ -196,10 +196,11 @@ class ProfileReporter:
                 lines.append("### Score Component Breakdown")
                 lines.append("")
                 lines.append(
-                    "| Task | Visual Relevance | Data Quality "
-                    "| Coverage/Diversity | Volume |"
+                    "| Task | Visual Relevance | Data Quality | Coverage/Diversity | Volume |"
                 )
-                lines.append("|------|-----------------|-------------|-------------------|--------|")
+                lines.append(
+                    "|------|-----------------|-------------|-------------------|--------|"
+                )
                 for cap in data["capabilities"]:
                     bd = cap.get("score_breakdown", {})
                     lines.append(

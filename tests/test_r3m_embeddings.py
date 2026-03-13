@@ -20,8 +20,7 @@ def _make_images(n: int = 5, size: int = 64) -> list[Image.Image]:
     """Create synthetic RGB images."""
     rng = np.random.default_rng(42)
     return [
-        Image.fromarray(rng.integers(0, 255, (size, size, 3), dtype=np.uint8))
-        for _ in range(n)
+        Image.fromarray(rng.integers(0, 255, (size, size, 3), dtype=np.uint8)) for _ in range(n)
     ]
 
 
@@ -288,8 +287,10 @@ class TestHybridScoring:
         )
 
         coverage = CoverageMap(
-            dense_regions=[], sparse_regions=[],
-            overall_coverage_score=0.5, umap_projection=None,
+            dense_regions=[],
+            sparse_regions=[],
+            overall_coverage_score=0.5,
+            umap_projection=None,
         )
         quality = QualityMetrics(
             episode_scores={i: 0.7 for i in range(20)},
@@ -311,7 +312,9 @@ class TestHybridScoring:
         scorer._tfidf_dim = DIM
 
         results = scorer.score_tasks(
-            primary_index, coverage, quality,
+            primary_index,
+            coverage,
+            quality,
             ["pick up cube"],
             relevance_index=relevance_index,
         )

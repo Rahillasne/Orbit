@@ -159,9 +159,7 @@ class EmbeddingExtractor:
 
         from orbit.embeddings.r3m_embeddings import R3MEmbeddingExtractor
 
-        self._r3m_extractor = R3MEmbeddingExtractor(
-            device=self.device, batch_size=self.batch_size
-        )
+        self._r3m_extractor = R3MEmbeddingExtractor(device=self.device, batch_size=self.batch_size)
         return self._r3m_extractor
 
     def _embed_images(self, images: list[Image.Image]) -> np.ndarray:
@@ -186,9 +184,7 @@ class EmbeddingExtractor:
         if model == "voltron":
             from orbit.embeddings.r3m_embeddings import VoltronEmbeddingExtractor
 
-            voltron = VoltronEmbeddingExtractor(
-                device=self.device, batch_size=self.batch_size
-            )
+            voltron = VoltronEmbeddingExtractor(device=self.device, batch_size=self.batch_size)
             result = voltron.embed_images(images)
             self._fallback_dim = voltron.dimension
             return result

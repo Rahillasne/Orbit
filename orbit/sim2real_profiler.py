@@ -100,9 +100,7 @@ class Sim2RealProfiler:
 
         # 1. Extract embeddings
         logger.info("Extracting sim embeddings from %s", sim_dir)
-        extractor = EmbeddingExtractor(
-            model_name=self.embedding_model, device=self.device
-        )
+        extractor = EmbeddingExtractor(model_name=self.embedding_model, device=self.device)
         sim_index = extractor.extract_from_directory(sim_dir)
 
         logger.info("Extracting real embeddings from %s", real_dir)
@@ -115,9 +113,7 @@ class Sim2RealProfiler:
         logger.info("Embedding overlap: %.3f", embedding_overlap)
 
         # 3. Visual domain gap
-        visual_gap_score = self._compute_visual_gap(
-            coverage_analyzer, sim_index, real_index
-        )
+        visual_gap_score = self._compute_visual_gap(coverage_analyzer, sim_index, real_index)
         logger.info("Visual domain gap: %.3f", visual_gap_score)
 
         # 4. Action distribution similarity
@@ -212,12 +208,8 @@ class Sim2RealProfiler:
             from orbit.profile.quality import QualityEstimator
 
             quality = QualityEstimator().estimate_quality(sim_episodes)
-            scorer = CapabilityScorer(
-                model_name=self.embedding_model, device=self.device
-            )
-            capabilities = scorer.score_tasks(
-                sim_index, sim_coverage, quality, task_descriptions
-            )
+            scorer = CapabilityScorer(model_name=self.embedding_model, device=self.device)
+            capabilities = scorer.score_tasks(sim_index, sim_coverage, quality, task_descriptions)
         except Exception:
             logger.warning(
                 "CapabilityScorer unavailable; using uniform task weights",
@@ -267,9 +259,7 @@ class Sim2RealProfiler:
         )
 
         biggest_gaps = [
-            {"dimension": name, "score": round(score, 4)}
-            for name, score in ranked
-            if score < 0.7
+            {"dimension": name, "score": round(score, 4)} for name, score in ranked if score < 0.7
         ]
 
         recommendations: list[str] = []
@@ -306,9 +296,7 @@ class Sim2RealProfiler:
         return {
             "biggest_gaps": biggest_gaps,
             "domain_shift_summary": domain_shift,
-            "worst_tasks": [
-                {"task": t, "score": round(s["score"], 4)} for t, s in worst_tasks
-            ],
+            "worst_tasks": [{"task": t, "score": round(s["score"], 4)} for t, s in worst_tasks],
             "recommendations": recommendations,
         }
 

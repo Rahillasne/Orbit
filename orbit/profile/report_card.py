@@ -308,9 +308,7 @@ class ReportCardGenerator:
         if coverage < 0.40 and profile.num_episodes >= 100:
             weaknesses.append("Large dataset but redundant — many similar episodes")
         if quality >= 0.80 and diversity < 0.30:
-            weaknesses.append(
-                "High-quality demos but limited environmental variation"
-            )
+            weaknesses.append("High-quality demos but limited environmental variation")
         if coverage >= 0.70 and quality < 0.40:
             weaknesses.append("Good scene variety but inconsistent demonstrations")
 
@@ -379,8 +377,7 @@ class ReportCardGenerator:
                         dimension="action_quality",
                         severity="Major",
                         description=(
-                            "Demonstrations have excessive jerk "
-                            "— likely teleoperation noise"
+                            "Demonstrations have excessive jerk — likely teleoperation noise"
                         ),
                         recommendation="Re-collect with smoother control or apply action smoothing",
                     )
@@ -625,9 +622,7 @@ def _count_clusters(reduced: np.ndarray, n_embeddings: int) -> int:
         min_cluster_size = max(3, n_embeddings // 20)
         with warnings.catch_warnings():
             warnings.simplefilter("ignore")
-            clusterer = hdbscan.HDBSCAN(
-                min_cluster_size=min_cluster_size, min_samples=2
-            )
+            clusterer = hdbscan.HDBSCAN(min_cluster_size=min_cluster_size, min_samples=2)
             labels = clusterer.fit_predict(reduced)
         n_clusters = len(set(labels)) - (1 if -1 in labels else 0)
         if n_clusters >= 1:

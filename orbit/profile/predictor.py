@@ -34,30 +34,55 @@ class DatasetQualityModel:
 
         # Ensemble of 4 models — average their predictions
         self.models = {
-            "gbr": Pipeline([
-                ("scaler", StandardScaler()),
-                ("model", GradientBoostingRegressor(
-                    n_estimators=200, max_depth=4, learning_rate=0.05,
-                    subsample=0.8, min_samples_leaf=3,
-                )),
-            ]),
-            "rf": Pipeline([
-                ("scaler", StandardScaler()),
-                ("model", RandomForestRegressor(
-                    n_estimators=200, max_depth=6, min_samples_leaf=2,
-                )),
-            ]),
-            "mlp": Pipeline([
-                ("scaler", StandardScaler()),
-                ("model", MLPRegressor(
-                    hidden_layer_sizes=(128, 64, 32), activation="relu",
-                    max_iter=1000, early_stopping=True, validation_fraction=0.15,
-                )),
-            ]),
-            "ridge": Pipeline([
-                ("scaler", StandardScaler()),
-                ("model", Ridge(alpha=1.0)),
-            ]),
+            "gbr": Pipeline(
+                [
+                    ("scaler", StandardScaler()),
+                    (
+                        "model",
+                        GradientBoostingRegressor(
+                            n_estimators=200,
+                            max_depth=4,
+                            learning_rate=0.05,
+                            subsample=0.8,
+                            min_samples_leaf=3,
+                        ),
+                    ),
+                ]
+            ),
+            "rf": Pipeline(
+                [
+                    ("scaler", StandardScaler()),
+                    (
+                        "model",
+                        RandomForestRegressor(
+                            n_estimators=200,
+                            max_depth=6,
+                            min_samples_leaf=2,
+                        ),
+                    ),
+                ]
+            ),
+            "mlp": Pipeline(
+                [
+                    ("scaler", StandardScaler()),
+                    (
+                        "model",
+                        MLPRegressor(
+                            hidden_layer_sizes=(128, 64, 32),
+                            activation="relu",
+                            max_iter=1000,
+                            early_stopping=True,
+                            validation_fraction=0.15,
+                        ),
+                    ),
+                ]
+            ),
+            "ridge": Pipeline(
+                [
+                    ("scaler", StandardScaler()),
+                    ("model", Ridge(alpha=1.0)),
+                ]
+            ),
         }
         self.weights = {"gbr": 0.35, "rf": 0.25, "mlp": 0.25, "ridge": 0.15}
         self.loocv_results: dict = {}
@@ -81,9 +106,13 @@ class DatasetQualityModel:
         for name, model in self.models.items():
             if sample_weights is not None:
                 try:
-                    model.fit(features, success_rates, **{
-                        f"{model.steps[-1][0]}__sample_weight": sample_weights,
-                    })
+                    model.fit(
+                        features,
+                        success_rates,
+                        **{
+                            f"{model.steps[-1][0]}__sample_weight": sample_weights,
+                        },
+                    )
                 except TypeError:
                     model.fit(features, success_rates)
             else:
@@ -91,7 +120,9 @@ class DatasetQualityModel:
 
         # Compute leave-one-out cross-validation
         self.loocv_results = self._compute_loocv(
-            features, success_rates, sample_weights,
+            features,
+            success_rates,
+            sample_weights,
         )
 
     def predict(self, features: np.ndarray) -> float:
@@ -114,8 +145,7 @@ class DatasetQualityModel:
             features = features.reshape(1, -1)
 
         preds = [
-            float(np.clip(model.predict(features)[0], 0.0, 1.0))
-            for model in self.models.values()
+            float(np.clip(model.predict(features)[0], 0.0, 1.0)) for model in self.models.values()
         ]
         return float(np.mean(preds)), float(np.std(preds))
 
@@ -146,7 +176,9 @@ class DatasetQualityModel:
             X_test_s = scaler.transform(X_test)
 
             model = GradientBoostingRegressor(
-                n_estimators=100, max_depth=3, learning_rate=0.05,
+                n_estimators=100,
+                max_depth=3,
+                learning_rate=0.05,
             )
             model.fit(X_train_s, y_train, sample_weight=w_train)
             pred = model.predict(X_test_s)[0]

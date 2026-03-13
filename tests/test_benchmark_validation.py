@@ -287,9 +287,7 @@ class TestProfileSingle:
         validator = BenchmarkValidator(cache_dir="/tmp/orbit_test_bench_cache")
         entry = _make_entry("fail_test", 0.9)
 
-        with patch(
-            "orbit.profile.profiler.DatasetProfiler"
-        ) as MockProfiler:
+        with patch("orbit.profile.profiler.DatasetProfiler") as MockProfiler:
             MockProfiler.return_value.profile_from_hub.side_effect = RuntimeError("network error")
             result = validator._profile_single(entry, force=True)
 
@@ -308,9 +306,7 @@ class TestProfileSingle:
         mock_profile = MagicMock()
         mock_profile.capabilities = [mock_cap]
 
-        with patch(
-            "orbit.profile.profiler.DatasetProfiler"
-        ) as MockProfiler:
+        with patch("orbit.profile.profiler.DatasetProfiler") as MockProfiler:
             MockProfiler.return_value.profile_from_hub.return_value = mock_profile
             result = validator._profile_single(entry, force=True)
 
@@ -332,9 +328,7 @@ class TestProfileSingle:
         mock_profile = MagicMock()
         mock_profile.capabilities = [mock_cap]
 
-        with patch(
-            "orbit.profile.profiler.DatasetProfiler"
-        ) as MockProfiler:
+        with patch("orbit.profile.profiler.DatasetProfiler") as MockProfiler:
             MockProfiler.return_value.profile_from_hub.return_value = mock_profile
             validator._profile_single(entry, force=True)
             result2 = validator._profile_single(entry, force=False)
@@ -374,9 +368,7 @@ class TestRunWithMockProfiler:
             mock_profile.capabilities = [mock_cap]
             return mock_profile
 
-        with patch(
-            "orbit.profile.profiler.DatasetProfiler"
-        ) as MockProfiler:
+        with patch("orbit.profile.profiler.DatasetProfiler") as MockProfiler:
             MockProfiler.return_value.profile_from_hub.side_effect = fake_profile_from_hub
             report = validator.run(force=True)
 

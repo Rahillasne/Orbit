@@ -111,36 +111,40 @@ _TASK_NAMES = [
 # ---------------------------------------------------------------------------
 
 _TEMPORAL_NAMES = [
-    "temp_state_autocorrelation",       # do states follow smooth trajectories?
-    "temp_coverage_rate",               # how quickly does dataset explore new regions?
-    "temp_action_temporal_entropy",      # is action sequence predictable or chaotic over time?
+    "temp_state_autocorrelation",  # do states follow smooth trajectories?
+    "temp_coverage_rate",  # how quickly does dataset explore new regions?
+    "temp_action_temporal_entropy",  # is action sequence predictable or chaotic over time?
 ]
 
 _CROSS_EPISODE_NAMES = [
-    "cross_inter_episode_overlap",      # do episodes visit the same states?
-    "cross_episode_diversity_index",    # Shannon entropy over episode embedding centroids
+    "cross_inter_episode_overlap",  # do episodes visit the same states?
+    "cross_episode_diversity_index",  # Shannon entropy over episode embedding centroids
 ]
 
 _EMB_GEOMETRY_NAMES = [
-    "geom_intrinsic_dimensionality",    # intrinsic dim of embedding manifold (MLE)
-    "geom_isotropy",                    # are embeddings spread uniformly or clustered in cone?
-    "geom_hub_score",                   # fraction of hub points (NN of many others)
+    "geom_intrinsic_dimensionality",  # intrinsic dim of embedding manifold (MLE)
+    "geom_isotropy",  # are embeddings spread uniformly or clustered in cone?
+    "geom_hub_score",  # fraction of hub points (NN of many others)
 ]
 
 _ADVANCED_INTERACTION_NAMES = [
-    "adv_coverage_action_ratio",        # embedding coverage / action coverage ratio
+    "adv_coverage_action_ratio",  # embedding coverage / action coverage ratio
 ]
 
 # Reduced feature set: embedding (20) + quality (12) + scale (8) + task (12) = 52 dims
 # Ablation showed removing action features improves rho from 0.666 to 0.704
-REDUCED_FEATURE_NAMES: list[str] = (
-    _EMBEDDING_NAMES + _QUALITY_NAMES + _SCALE_NAMES + _TASK_NAMES
-)
+REDUCED_FEATURE_NAMES: list[str] = _EMBEDDING_NAMES + _QUALITY_NAMES + _SCALE_NAMES + _TASK_NAMES
 
 # Extended feature set: 64 base + 9 new = 73 dims
 EXTENDED_FEATURE_NAMES: list[str] = (
-    _EMBEDDING_NAMES + _ACTION_NAMES + _QUALITY_NAMES + _SCALE_NAMES + _TASK_NAMES
-    + _TEMPORAL_NAMES + _CROSS_EPISODE_NAMES + _EMB_GEOMETRY_NAMES
+    _EMBEDDING_NAMES
+    + _ACTION_NAMES
+    + _QUALITY_NAMES
+    + _SCALE_NAMES
+    + _TASK_NAMES
+    + _TEMPORAL_NAMES
+    + _CROSS_EPISODE_NAMES
+    + _EMB_GEOMETRY_NAMES
     + _ADVANCED_INTERACTION_NAMES
 )
 
@@ -309,9 +313,7 @@ class DatasetFeatureExtractor:
             features = base_features
 
         # Replace any non-finite values
-        features = np.nan_to_num(features, nan=0.0, posinf=0.0, neginf=0.0).astype(
-            np.float32
-        )
+        features = np.nan_to_num(features, nan=0.0, posinf=0.0, neginf=0.0).astype(np.float32)
 
         if self._scaler is not None:
             features = self._scaler.transform(features.reshape(1, -1))[0]
@@ -338,8 +340,12 @@ class DatasetFeatureExtractor:
         _COMPLEXITY_MAP = {"simple": 0.2, "medium": 0.5, "hard": 0.9}
         _HORIZON_MAP = {"short": 0.3, "medium": 0.6, "long": 1.0}
         _DEMO_TYPE_MAP = {
-            "expert": 0.95, "proficient_human": 0.85, "scripted": 0.9,
-            "multi_human": 0.55, "medium": 0.45, "medium_replay": 0.35,
+            "expert": 0.95,
+            "proficient_human": 0.85,
+            "scripted": 0.9,
+            "multi_human": 0.55,
+            "medium": 0.45,
+            "medium_replay": 0.35,
             "random": 0.1,
         }
 
@@ -486,9 +492,7 @@ class DatasetFeatureExtractor:
     # Group 2: Action space features (12 dims)
     # ------------------------------------------------------------------
 
-    def _action_features(
-        self, profile: DatasetProfile, episodes: list[dict] | None
-    ) -> np.ndarray:
+    def _action_features(self, profile: DatasetProfile, episodes: list[dict] | None) -> np.ndarray:
         stats = self._ensure_action_stats(profile, episodes)
         return np.array(
             [
@@ -636,9 +640,7 @@ class DatasetFeatureExtractor:
         temporal = self._temporal_features(profile, episodes)
         cross_ep = self._cross_episode_features(profile)
         geometry = self._embedding_geometry_features(profile)
-        adv_interaction = self._advanced_interaction_features(
-            profile, emb_feats, act_feats
-        )
+        adv_interaction = self._advanced_interaction_features(profile, emb_feats, act_feats)
         ext = np.concatenate([temporal, cross_ep, geometry, adv_interaction])
         assert len(ext) == 9, f"Expected 9 extended features, got {len(ext)}"
         return ext
@@ -778,13 +780,9 @@ class DatasetFeatureExtractor:
 
                         with warnings.catch_warnings():
                             warnings.simplefilter("ignore")
-                            km = KMeans(
-                                n_clusters=n_clusters, n_init="auto", random_state=42
-                            )
+                            km = KMeans(n_clusters=n_clusters, n_init="auto", random_state=42)
                             labels = km.fit_predict(centroids_arr)
-                        counts = np.bincount(labels, minlength=n_clusters).astype(
-                            np.float64
-                        )
+                        counts = np.bincount(labels, minlength=n_clusters).astype(np.float64)
                         probs = counts / counts.sum()
                         probs = probs[probs > 0]
                         entropy = float(-np.sum(probs * np.log(probs)))
@@ -819,9 +817,7 @@ class DatasetFeatureExtractor:
                     # Skip self-distance (column 0)
                     dists = dists[:, 1:]
                     # MLE estimator
-                    log_ratios = np.log(
-                        dists[:, -1:] / np.maximum(dists[:, :-1], 1e-10)
-                    )
+                    log_ratios = np.log(dists[:, -1:] / np.maximum(dists[:, :-1], 1e-10))
                     mle_dims = (k_nn - 1) / np.sum(log_ratios, axis=1)
                     intrinsic_dim = float(np.median(mle_dims))
                     intrinsic_dim = min(intrinsic_dim, 100.0)  # cap outliers
@@ -925,9 +921,7 @@ def _reconstruct_embeddings(profile: DatasetProfile, max_n: int = _MAX_EMBEDDING
         embeddings = idx.index.reconstruct_n(0, n_use)
     except RuntimeError:
         # Some index types don't support reconstruct_n
-        embeddings = np.array(
-            [idx.index.reconstruct(i) for i in range(n_use)], dtype=np.float32
-        )
+        embeddings = np.array([idx.index.reconstruct(i) for i in range(n_use)], dtype=np.float32)
     return embeddings
 
 
@@ -1015,13 +1009,9 @@ def _compute_embedding_stats(profile: DatasetProfile) -> EmbeddingStats:
 
             non_noise = labels != -1
             if non_noise.sum() > num_clusters:
-                sil_score = float(
-                    silhouette_score(embeddings[non_noise], labels[non_noise])
-                )
+                sil_score = float(silhouette_score(embeddings[non_noise], labels[non_noise]))
                 cal_har = float(
-                    np.log1p(
-                        calinski_harabasz_score(embeddings[non_noise], labels[non_noise])
-                    )
+                    np.log1p(calinski_harabasz_score(embeddings[non_noise], labels[non_noise]))
                 )
     except ImportError:
         logger.debug("HDBSCAN not available; cluster features set to 0")

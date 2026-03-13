@@ -68,7 +68,9 @@ def _make_profile(
                 "density": 0.1,
                 "description": "peripheral region",
             }
-        ] if coverage_score < 0.7 else [],
+        ]
+        if coverage_score < 0.7
+        else [],
         overall_coverage_score=coverage_score,
         umap_projection=None,
     )
@@ -84,8 +86,10 @@ def _make_profile(
                 environment_diversity=0.5,
                 gap_description=None,
                 score_breakdown=ScoreBreakdown(
-                    visual_relevance=0.7, data_quality=0.8,
-                    coverage_diversity=0.6, volume=0.5,
+                    visual_relevance=0.7,
+                    data_quality=0.8,
+                    coverage_diversity=0.6,
+                    volume=0.5,
                 ),
             ),
             CapabilityScore(
@@ -97,8 +101,10 @@ def _make_profile(
                 environment_diversity=0.2,
                 gap_description="Low visual similarity to task 'place on shelf'",
                 score_breakdown=ScoreBreakdown(
-                    visual_relevance=0.3, data_quality=0.7,
-                    coverage_diversity=0.3, volume=0.2,
+                    visual_relevance=0.3,
+                    data_quality=0.7,
+                    coverage_diversity=0.3,
+                    volume=0.2,
                 ),
             ),
         ]
@@ -230,9 +236,13 @@ class TestStrengthDetection:
     def test_always_at_least_one_strength(self):
         gen = ReportCardGenerator()
         profile = _make_profile(
-            coverage_score=0.10, quality_score=0.10,
-            mi=0.1, smoothness=0.1, completion=0.1,
-            consistency=0.1, demo_quality=0.1,
+            coverage_score=0.10,
+            quality_score=0.10,
+            mi=0.1,
+            smoothness=0.1,
+            completion=0.1,
+            consistency=0.1,
+            demo_quality=0.1,
         )
         profile.capabilities = []
         strengths = gen._detect_strengths(profile, 0.10, 0.10, 0.10, 0.10)
@@ -363,9 +373,16 @@ class TestReportCardSerialization:
 
         d = card.to_dict()
         expected_keys = {
-            "dataset_name", "overall_grade", "overall_score",
-            "grades", "strengths", "weaknesses", "gaps",
-            "prescriptions", "task_assessments", "timestamp",
+            "dataset_name",
+            "overall_grade",
+            "overall_score",
+            "grades",
+            "strengths",
+            "weaknesses",
+            "gaps",
+            "prescriptions",
+            "task_assessments",
+            "timestamp",
         }
         assert expected_keys.issubset(set(d.keys()))
 

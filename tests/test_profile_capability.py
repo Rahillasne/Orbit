@@ -295,25 +295,19 @@ class TestScoringFormula:
         assert 0.0 <= bd.coverage_diversity <= 1.0
         assert 0.0 <= bd.volume <= 1.0
 
-    def test_custom_weights(
-        self, centers, dataset_index, dataset_coverage, dataset_quality
-    ):
+    def test_custom_weights(self, centers, dataset_index, dataset_coverage, dataset_quality):
         """Custom weights should change the score."""
         # All weight on visual relevance
         w_relevance = ScoringWeights(
             visual_relevance=1.0, data_quality=0.0, coverage_diversity=0.0, volume=0.0
         )
-        scorer_rel = _scorer_with_mock(
-            {"pick": centers["positive"]}, scoring_weights=w_relevance
-        )
+        scorer_rel = _scorer_with_mock({"pick": centers["positive"]}, scoring_weights=w_relevance)
 
         # All weight on data quality
         w_quality = ScoringWeights(
             visual_relevance=0.0, data_quality=1.0, coverage_diversity=0.0, volume=0.0
         )
-        scorer_qual = _scorer_with_mock(
-            {"pick": centers["positive"]}, scoring_weights=w_quality
-        )
+        scorer_qual = _scorer_with_mock({"pick": centers["positive"]}, scoring_weights=w_quality)
 
         caps_rel = scorer_rel.score_tasks(
             dataset_index, dataset_coverage, dataset_quality, ["pick up cube"]
@@ -325,9 +319,7 @@ class TestScoringFormula:
         # Different weights should produce different scores
         assert caps_rel[0].score != caps_qual[0].score
 
-    def test_relevance_gating_still_works(
-        self, centers, dataset_index, dataset_coverage
-    ):
+    def test_relevance_gating_still_works(self, centers, dataset_index, dataset_coverage):
         """High quality but low relevance should still get a low score."""
         # High quality dataset
         quality = _make_quality(list(range(10)), score=1.0)
@@ -360,12 +352,8 @@ class TestScoringFormula:
 
         scorer = _scorer_with_mock({"pick": centers["positive"]})
 
-        caps_small = scorer.score_tasks(
-            idx_small, coverage, quality_small, ["pick up cube"]
-        )
-        caps_large = scorer.score_tasks(
-            idx_large, coverage, quality_large, ["pick up cube"]
-        )
+        caps_small = scorer.score_tasks(idx_small, coverage, quality_small, ["pick up cube"])
+        caps_large = scorer.score_tasks(idx_large, coverage, quality_large, ["pick up cube"])
 
         # Large dataset should score at least as high due to volume component
         assert caps_large[0].score >= caps_small[0].score

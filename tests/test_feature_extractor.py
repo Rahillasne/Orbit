@@ -169,9 +169,10 @@ def _make_test_episodes(n_episodes: int = 5, T: int = 20, action_dim: int = 6, s
     episodes = []
     for i in range(n_episodes):
         states = np.cumsum(rng.standard_normal((T, action_dim)) * 0.1, axis=0)
-        actions = np.diff(states, axis=0, prepend=states[:1]) + rng.standard_normal(
-            (T, action_dim)
-        ) * 0.01
+        actions = (
+            np.diff(states, axis=0, prepend=states[:1])
+            + rng.standard_normal((T, action_dim)) * 0.01
+        )
         episodes.append({"episode_id": i, "states": states, "actions": actions})
     return episodes
 

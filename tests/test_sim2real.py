@@ -30,9 +30,7 @@ def _make_episodes(n_episodes: int, n_steps: int, action_dim: int, rng, offset: 
             {
                 "episode_id": i,
                 "states": rng.standard_normal((n_steps, 6)).astype(np.float32),
-                "actions": (rng.standard_normal((n_steps, action_dim)) + offset).astype(
-                    np.float32
-                ),
+                "actions": (rng.standard_normal((n_steps, action_dim)) + offset).astype(np.float32),
             }
         )
     return episodes
@@ -143,10 +141,20 @@ class TestSim2RealReport:
         report = Sim2RealReport(
             overall_transfer_score=0.65,
             per_task_scores={
-                "pick": {"score": 0.7, "embedding_overlap": 0.8, "visual_gap": 0.2,
-                         "action_similarity": 0.6, "diversity": 0.5},
-                "place": {"score": 0.6, "embedding_overlap": 0.7, "visual_gap": 0.3,
-                          "action_similarity": 0.5, "diversity": 0.4},
+                "pick": {
+                    "score": 0.7,
+                    "embedding_overlap": 0.8,
+                    "visual_gap": 0.2,
+                    "action_similarity": 0.6,
+                    "diversity": 0.5,
+                },
+                "place": {
+                    "score": 0.6,
+                    "embedding_overlap": 0.7,
+                    "visual_gap": 0.3,
+                    "action_similarity": 0.5,
+                    "diversity": 0.4,
+                },
             },
             gap_analysis={"biggest_gaps": [], "recommendations": []},
             prescription=[],
@@ -326,9 +334,7 @@ class TestIntegration:
         """End-to-end test with task descriptions."""
         sim_dir, real_dir = sim_and_real_dirs
         profiler = Sim2RealProfiler()
-        report = profiler.analyze(
-            str(sim_dir), str(real_dir), task_descriptions=["pick object"]
-        )
+        report = profiler.analyze(str(sim_dir), str(real_dir), task_descriptions=["pick object"])
 
         assert "pick object" in report.per_task_scores
         assert "general" not in report.per_task_scores

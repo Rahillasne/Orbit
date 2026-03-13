@@ -112,8 +112,7 @@ class RobomimicAdapter(BaseAdapter):
         with h5py.File(self._path, "r") as f:
             if "data" not in f:
                 raise ValueError(
-                    f"Expected 'data' group in {self._path}. "
-                    f"Top-level keys: {list(f.keys())}"
+                    f"Expected 'data' group in {self._path}. Top-level keys: {list(f.keys())}"
                 )
             data_grp = f["data"]
 
@@ -133,9 +132,7 @@ class RobomimicAdapter(BaseAdapter):
             meta["num_demos"] = len(demo_keys)
             self._dataset_meta = meta
 
-        logger.info(
-            "Scanned robomimic file %s: %d demos", self._path, len(self._demo_keys)
-        )
+        logger.info("Scanned robomimic file %s: %d demos", self._path, len(self._demo_keys))
 
     @property
     def num_episodes(self) -> int:
@@ -174,15 +171,11 @@ class RobomimicAdapter(BaseAdapter):
                     if found is not None:
                         states = found
                     else:
-                        states = np.zeros(
-                            (len(actions), actions.shape[1]), dtype=np.float32
-                        )
+                        states = np.zeros((len(actions), actions.shape[1]), dtype=np.float32)
                 elif "states" in demo:
                     states = demo["states"][:].astype(np.float32)
                 else:
-                    states = np.zeros(
-                        (len(actions), actions.shape[1]), dtype=np.float32
-                    )
+                    states = np.zeros((len(actions), actions.shape[1]), dtype=np.float32)
 
                 # Align lengths
                 min_len = min(len(states), len(actions))

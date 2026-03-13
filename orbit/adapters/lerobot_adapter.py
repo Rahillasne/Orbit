@@ -123,8 +123,7 @@ class LeRobotAdapter(BaseAdapter):
         )
         if not parquet_files:
             raise FileNotFoundError(
-                f"No parquet files found in {local_path}. "
-                "Dataset may not be in LeRobot v2 format."
+                f"No parquet files found in {local_path}. Dataset may not be in LeRobot v2 format."
             )
 
         df = pd.concat([pd.read_parquet(p) for p in parquet_files], ignore_index=True)
@@ -202,9 +201,7 @@ class LeRobotAdapter(BaseAdapter):
 
                 # Action
                 if "action" in sample:
-                    actions_list.append(
-                        _tensor_to_numpy(sample["action"]).astype(np.float32)
-                    )
+                    actions_list.append(_tensor_to_numpy(sample["action"]).astype(np.float32))
 
                 # Images — auto-detect camera keys on first sample
                 if auto_camera_keys is None:
@@ -216,9 +213,7 @@ class LeRobotAdapter(BaseAdapter):
                         images.setdefault(cam_key, []).append(img)
 
                 # Language instruction (if present)
-                if "language_instruction" in sample and not ep_metadata.get(
-                    "language_instruction"
-                ):
+                if "language_instruction" in sample and not ep_metadata.get("language_instruction"):
                     instr = sample["language_instruction"]
                     if isinstance(instr, str) and instr:
                         ep_metadata["language_instruction"] = instr

@@ -107,9 +107,7 @@ class VoltronEmbeddingExtractor:
         try:
             from voltron import load
 
-            self._model, self._preprocess = load(
-                self.variant, device=self.device, freeze=True
-            )
+            self._model, self._preprocess = load(self.variant, device=self.device, freeze=True)
             logger.info("Loaded Voltron %s on %s", self.variant, self.device)
             return True
 
@@ -180,8 +178,7 @@ class VoltronEmbeddingExtractor:
         # Voltron's language conditioning is model-specific
         # Full implementation requires voltron's tokenizer
         logger.warning(
-            "Task-conditioned embeddings not yet fully implemented, "
-            "using standard embeddings"
+            "Task-conditioned embeddings not yet fully implemented, using standard embeddings"
         )
         return self.embed_images(images)
 

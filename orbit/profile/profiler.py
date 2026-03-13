@@ -153,9 +153,7 @@ class DatasetProfiler:
 
         return profile
 
-    def _run_quality_prediction(
-        self, profile: DatasetProfile, episodes: list[dict]
-    ) -> None:
+    def _run_quality_prediction(self, profile: DatasetProfile, episodes: list[dict]) -> None:
         """Attempt to run the V2 quality predictor, skip if unavailable."""
         model_path = Path(__file__).parent / "pretrained" / "quality_model_v2.pkl"
         if not model_path.exists():

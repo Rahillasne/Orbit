@@ -117,8 +117,10 @@ class TestGPUAutoDetection:
         """When no GPU is detected on CPU device, should auto-switch to fast mode."""
         import torch as real_torch
 
-        with patch.object(real_torch.cuda, "is_available", return_value=False), \
-             patch.object(real_torch.backends.mps, "is_available", return_value=False):
+        with (
+            patch.object(real_torch.cuda, "is_available", return_value=False),
+            patch.object(real_torch.backends.mps, "is_available", return_value=False),
+        ):
             from orbit.profile.embedding import EmbeddingExtractor
 
             extractor = EmbeddingExtractor(device="cpu", fast_mode=False)

@@ -164,8 +164,7 @@ class DatasetQualityModelV2:
             real_mask = np.array([t == "profiled" for t in feature_types])
             if real_mask.sum() >= 15:
                 logger.info(
-                    "Training on %d real profiled datasets "
-                    "(dropping %d estimated)",
+                    "Training on %d real profiled datasets (dropping %d estimated)",
                     real_mask.sum(),
                     (~real_mask).sum(),
                 )
@@ -213,10 +212,7 @@ class DatasetQualityModelV2:
             features_transformed = self.pca.fit_transform(features_scaled)
 
             explained_var = self.pca.explained_variance_ratio_.cumsum()
-            print(
-                f"PCA: {n_components} components explain "
-                f"{explained_var[-1] * 100:.1f}% variance"
-            )
+            print(f"PCA: {n_components} components explain {explained_var[-1] * 100:.1f}% variance")
         else:
             self.pca = None
             features_transformed = features_scaled
@@ -239,9 +235,7 @@ class DatasetQualityModelV2:
 
         # ===== Step 6: Calibration via isotonic regression =====
         cv_predictions = self.validation_results["cv_predictions"]
-        self.calibrator = IsotonicRegression(
-            y_min=0.0, y_max=1.0, out_of_bounds="clip"
-        )
+        self.calibrator = IsotonicRegression(y_min=0.0, y_max=1.0, out_of_bounds="clip")
         self.calibrator.fit(cv_predictions, targets)
 
         # ===== Step 7: Bootstrap confidence intervals =====
@@ -330,11 +324,7 @@ class DatasetQualityModelV2:
             n_train = len(X_train)
             fold_model = self._build_model(n_train)
 
-            w = (
-                weights[train_idx]
-                if weights is not None and len(weights) == len(y)
-                else None
-            )
+            w = weights[train_idx] if weights is not None and len(weights) == len(y) else None
             if w is not None:
                 try:
                     fold_model.fit(X_train, y_train, sample_weight=w)
@@ -438,9 +428,7 @@ class DatasetQualityModelV2:
 
         # Calibrated prediction
         if self.calibrator is not None:
-            calibrated_pred = float(
-                np.clip(self.calibrator.predict([raw_pred])[0], 0, 1)
-            )
+            calibrated_pred = float(np.clip(self.calibrator.predict([raw_pred])[0], 0, 1))
         else:
             calibrated_pred = raw_pred
 
@@ -458,9 +446,7 @@ class DatasetQualityModelV2:
 
         # OOD detection
         if self.training_features is not None:
-            distances = np.linalg.norm(
-                self.training_features - features_transformed, axis=1
-            )
+            distances = np.linalg.norm(self.training_features - features_transformed, axis=1)
             nearest_dist = float(distances.min())
             median_dist = float(np.median(distances))
         else:
@@ -477,15 +463,9 @@ class DatasetQualityModelV2:
         else:
             confidence = "low"
             if nearest_dist > median_dist * 2:
-                warning = (
-                    "Dataset is far from training distribution "
-                    "— prediction may be unreliable"
-                )
+                warning = "Dataset is far from training distribution — prediction may be unreliable"
             else:
-                warning = (
-                    "High model uncertainty "
-                    "— prediction has wide confidence interval"
-                )
+                warning = "High model uncertainty — prediction has wide confidence interval"
 
         return Prediction(
             predicted_success_rate=calibrated_pred,
@@ -507,23 +487,14 @@ class DatasetQualityModelV2:
         print(f"  Training samples:     {v['n_samples']}")
         if self.pca is not None:
             print(f"  PCA components:       {self.pca.n_components_}")
-            print(
-                f"  Variance explained:   "
-                f"{self.pca.explained_variance_ratio_.sum() * 100:.1f}%"
-            )
+            print(f"  Variance explained:   {self.pca.explained_variance_ratio_.sum() * 100:.1f}%")
         else:
             print("  PCA:                  disabled")
         print()
         print("  CROSS-VALIDATED METRICS (unbiased):")
         print(f"  {'─' * 40}")
-        print(
-            f"  Spearman rho:         {v['spearman_rho']:.3f} "
-            f"(p={v['spearman_p']:.4f})"
-        )
-        print(
-            f"  Pearson r:            {v['pearson_r']:.3f} "
-            f"(p={v['pearson_p']:.4f})"
-        )
+        print(f"  Spearman rho:         {v['spearman_rho']:.3f} (p={v['spearman_p']:.4f})")
+        print(f"  Pearson r:            {v['pearson_r']:.3f} (p={v['pearson_p']:.4f})")
         print(f"  MAE:                  {v['mae']:.3f}")
         print(f"  RMSE:                 {v['rmse']:.3f}")
         print(f"  Rank accuracy:        {v['rank_accuracy'] * 100:.1f}%")
@@ -546,9 +517,7 @@ class DatasetQualityModelV2:
 
         # Per-sample breakdown
         cv_pred = v["cv_predictions"]
-        print(
-            f"  {'Idx':<6} {'Actual':>7} {'Pred':>7} {'Error':>7} {'':>2}"
-        )
+        print(f"  {'Idx':<6} {'Actual':>7} {'Pred':>7} {'Error':>7} {'':>2}")
         print(f"  {'─' * 35}")
 
         errors = cv_pred - targets
@@ -559,8 +528,7 @@ class DatasetQualityModelV2:
             bar = "█" * bar_len
             marker = "✓" if abs(err) < 0.15 else "✗"
             print(
-                f"  {idx:<6d} {targets[idx]:>7.2f} {cv_pred[idx]:>7.2f} "
-                f"{err:>+7.2f} {marker} {bar}"
+                f"  {idx:<6d} {targets[idx]:>7.2f} {cv_pred[idx]:>7.2f} {err:>+7.2f} {marker} {bar}"
             )
 
         print(f"\n  Bootstrap ensemble: {len(self.bootstrap_models)} models")

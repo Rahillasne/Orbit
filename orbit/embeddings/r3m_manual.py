@@ -30,11 +30,13 @@ class R3MManualExtractor:
     def __init__(self, device: str = "cpu") -> None:
         self.device = self._resolve_device(device)
         self.model = self._load_model()
-        self.transform = transforms.Compose([
-            transforms.Resize(224),
-            transforms.CenterCrop(224),
-            transforms.ToTensor(),
-        ])
+        self.transform = transforms.Compose(
+            [
+                transforms.Resize(224),
+                transforms.CenterCrop(224),
+                transforms.ToTensor(),
+            ]
+        )
 
     @property
     def dimension(self) -> int:
@@ -84,6 +86,7 @@ class R3MManualExtractor:
         # --- Source 2: Cached r3m pip package weights ---
         try:
             import os
+
             r3m_cache = os.path.expanduser("~/.r3m")
             for root, _dirs, files in os.walk(r3m_cache):
                 for fname in files:

@@ -160,8 +160,7 @@ class ValidationReport:
             sig_spearman = "significant" if c.spearman_p < 0.05 else "not significant"
             sig_pearson = "significant" if c.pearson_p < 0.05 else "not significant"
             lines.append(
-                f"- **Spearman rho**: {c.spearman_rho:.4f}"
-                f" (p={c.spearman_p:.4f}, {sig_spearman})"
+                f"- **Spearman rho**: {c.spearman_rho:.4f} (p={c.spearman_p:.4f}, {sig_spearman})"
             )
             lines.append(f"- **Pearson r**: {c.pearson_r:.4f} (p={c.pearson_p:.4f}, {sig_pearson})")
             lines.append(f"- **Rank accuracy**: {c.rank_accuracy:.4f}")
@@ -594,25 +593,34 @@ def _cli_main() -> None:
 
     @click.command()
     @click.option(
-        "--cache-dir", default=None, type=click.Path(),
+        "--cache-dir",
+        default=None,
+        type=click.Path(),
         help="Cache directory for profiles.",
     )
     @click.option(
-        "--output", "-o", default=None, type=click.Path(),
+        "--output",
+        "-o",
+        default=None,
+        type=click.Path(),
         help="Output file path.",
     )
     @click.option(
-        "--format", "fmt",
+        "--format",
+        "fmt",
         type=click.Choice(["markdown", "json"]),
         default="markdown",
         help="Report format.",
     )
     @click.option(
-        "--max-episodes", default=None, type=int,
+        "--max-episodes",
+        default=None,
+        type=int,
         help="Override max episodes per dataset.",
     )
     @click.option(
-        "--dataset", multiple=True,
+        "--dataset",
+        multiple=True,
         help="Specific dataset IDs to validate (default: all).",
     )
     @click.option("--force", is_flag=True, help="Ignore cached scores and re-profile.")

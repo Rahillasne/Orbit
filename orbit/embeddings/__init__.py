@@ -72,8 +72,7 @@ def get_extractor(
         return VoltronEmbeddingExtractor(device=device, batch_size=batch_size)
 
     raise ValueError(
-        f"Unknown embedding model: {model!r}. "
-        f"Choose from: 'r3m', 'siglip', 'openclip', 'voltron'."
+        f"Unknown embedding model: {model!r}. Choose from: 'r3m', 'siglip', 'openclip', 'voltron'."
     )
 
 

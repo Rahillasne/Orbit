@@ -115,14 +115,16 @@ class TestExtractFromMetadata:
         from orbit.profile.feature_extractor import DatasetFeatureExtractor
 
         ext = DatasetFeatureExtractor()
-        features = ext.extract_from_metadata({
-            "num_episodes": 1000,
-            "avg_episode_length": 40,
-            "action_dims": 7,
-            "image_resolution": [320, 240],
-            "diversity_estimate": "high",
-            "quality_estimate": "high",
-        })
+        features = ext.extract_from_metadata(
+            {
+                "num_episodes": 1000,
+                "avg_episode_length": 40,
+                "action_dims": 7,
+                "image_resolution": [320, 240],
+                "diversity_estimate": "high",
+                "quality_estimate": "high",
+            }
+        )
         assert features.shape == (64,)
         assert features.dtype == np.float32
 
@@ -131,20 +133,24 @@ class TestExtractFromMetadata:
         from orbit.profile.feature_extractor import DatasetFeatureExtractor
 
         ext = DatasetFeatureExtractor()
-        high = ext.extract_from_metadata({
-            "num_episodes": 1000,
-            "avg_episode_length": 40,
-            "action_dims": 7,
-            "diversity_estimate": "high",
-            "quality_estimate": "high",
-        })
-        low = ext.extract_from_metadata({
-            "num_episodes": 1000,
-            "avg_episode_length": 40,
-            "action_dims": 7,
-            "diversity_estimate": "low",
-            "quality_estimate": "low",
-        })
+        high = ext.extract_from_metadata(
+            {
+                "num_episodes": 1000,
+                "avg_episode_length": 40,
+                "action_dims": 7,
+                "diversity_estimate": "high",
+                "quality_estimate": "high",
+            }
+        )
+        low = ext.extract_from_metadata(
+            {
+                "num_episodes": 1000,
+                "avg_episode_length": 40,
+                "action_dims": 7,
+                "diversity_estimate": "low",
+                "quality_estimate": "low",
+            }
+        )
         assert not np.array_equal(high, low)
 
     def test_handles_missing_fields(self):
