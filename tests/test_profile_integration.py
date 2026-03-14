@@ -157,8 +157,9 @@ class TestProfileIntegration:
         """Full profiler.profile() pipeline produces valid DatasetProfile."""
         data_dir = _create_synthetic_dataset(tmp_path)
 
-        # Force fallback mode for embeddings (no SigLIP needed)
-        profiler = DatasetProfiler(device="cpu")
+        # Force fast mode so both embeddings and text encoding use OpenCLIP
+        # (512-dim), avoiding dimension mismatch when SigLIP is unavailable.
+        profiler = DatasetProfiler(device="cpu", fast_mode=True)
 
         # Patch to force fallback embedding (random projection)
         with patch.object(EmbeddingExtractor, "_get_analyzer", return_value=None):
